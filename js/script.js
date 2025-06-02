@@ -103,40 +103,13 @@ const submitBtn = document.getElementById('submitBtn');
 submitBtn.innerText = '処理中...';
 submitBtn.disabled = true;
 
-  // 送信用のペイロードを組み立て
-  const payload = {
-    title: title,
-    entries: entries
-  };
-
-  // fetch で GAS API を呼び出す
-  fetch(GAS_API_URL, {
-    method: 'POST',
-    mode: 'cors', 
-    headers: {
-      'Content-Type': 'application/json',
-      // 必要ならここに APIキー認証を追加
-      // 'Authorization': 'Bearer your-api-key'
-    },
-    body: JSON.stringify(payload)
-  })
-  .then(res => res.json())
-  .then(result => {
-    // 完了演出：ボタンを戻してアラート
+google.script.run
+    .withSuccessHandler(() => {
     submitBtn.innerText = 'シフトを登録';
     submitBtn.disabled = false;
-    if (result.status === 'OK') {
-      alert('登録完了しました');
-    } else {
-      alert('登録に失敗しました: ' + JSON.stringify(result));
-    }
-  })
-  .catch(err => {
-    console.error(err);
-    submitBtn.innerText = 'シフトを登録';
-    submitBtn.disabled = false;
-    alert('エラーが発生しました');
-  });
+    alert("登録完了しました");
+    })
+    .submitShift({ title, entries });
 }
 
 // 初期実行

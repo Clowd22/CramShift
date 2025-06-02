@@ -27,15 +27,9 @@ box-sizing: border-box;
 /* カレンダー部分のレスポンシブグリッド設定 */
 .calendar {
 display: grid;
-grid-template-columns: repeat(4, 1fr); /* デフォルトはスマホ向けで4列 */
+grid-template-columns: repeat(3, 1fr); /* デフォルトはスマホ向けで4列 */
 gap: 10px;
 margin-top: 1rem;
-}
-
-@media (min-width: 768px) {
-.calendar {
-    grid-template-columns: repeat(7, 1fr); /* PCでは7列表示 */
-}
 }
 
 .day {
@@ -51,7 +45,7 @@ box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 
 .day strong {
 display: block;
-font-size: 0.9rem;
+font-size: 1.5rem;
 margin-bottom: 0.5rem;
 color: #007bff;
 }
@@ -71,7 +65,7 @@ padding: 8px 14px;
 border: 1px solid #ccc;
 border-radius: 12px;
 cursor: pointer;
-font-size: 1rem;
+font-size: 2rem;
 user-select: none;
 background-color: #f2f2f2;
 }

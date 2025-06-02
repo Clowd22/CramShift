@@ -103,16 +103,46 @@ const submitBtn = document.getElementById('submitBtn');
 submitBtn.innerText = '処理中...';
 submitBtn.disabled = true;
 
-google.script.run
-    .withSuccessHandler(() => {
-    submitBtn.innerText = 'シフトを登録';
-    submitBtn.disabled = false;
-    alert("登録完了しました");
-    })
-    .submitShift({ title, entries });
+// 送信用のペイロードを組み立て
+const payload = {
+title: title,
+entries: entries
+};
+
+// fetch で GAS API を呼び出す
+fetch(GAS_API_URL, {
+method: 'POST',
+mode: 'cors', 
+headers: {
+  'Content-Type': 'application/json',
+  // 必要ならここに APIキー認証を追加
+  // 'Authorization': 'Bearer your-api-key'
+},
+body: JSON.stringify(payload)
+})
+.then(res => res.json())
+.then(result => {
+// 完了演出：ボタンを戻してアラート
+submitBtn.innerText = 'シフトを登録';
+submitBtn.disabled = false;
+if (result.status === 'OK') {
+  alert('登録完了しました');
+} else {
+  alert('登録に失敗しました: ' + JSON.stringify(result));
+}
+})
+.catch(err => {
+console.error(err);
+submitBtn.innerText = 'シフトを登録';
+submitBtn.disabled = false;
+alert('エラーが発生しました');
+});
 }
 
 // 初期実行
+// ⑩ ページ読み込み時の初期化
 generateMonthOptions();
 generateCalendar();
 document.getElementById('monthSelector').addEventListener('change', generateCalendar);
+document.getElementById('toggleXYZ').addEventListener('click', toggleXYZ);
+document.getElementById('submitBtn').addEventListener('click', submitData);

@@ -1,5 +1,4 @@
-
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxnCQAlR99_iqQvD2XiUwdf-tXU1QKJMMHaESrpyYCdyiElMwQRElz8CHAsXNsLR-Yq9w/exec'; 
+const WebApp_URL = "https://script.google.com/macros/s/AKfycbwVzIP-tCTEoO2yjpAXdbFaqFcpnm9T_0JOiFEiXtflycGzgeHy7CysVg2Y7hjMXJpJbQ/exec"
 const SHIFTS_MAIN = ['A', 'B', 'C', 'D'];
 const SHIFTS_EXTRA = ['X', 'Y', 'Z'];
 let showXYZ = false;
@@ -80,69 +79,52 @@ generateCalendar();
 
 // シフト送信処理
 function submitData() {
+  const title = document.getElementById('title').value || '明光義塾勤務';
+  const selected = document.getElementById('monthSelector').value;
+  const [year, month] = selected.split('-').map(Number);
+  const entries = [];
+  const date = new Date(year, month - 1, 1);
 
-const title = document.getElementById('title').value || '明光義塾勤務';
-const selected = document.getElementById('monthSelector').value;
-const [year, month] = selected.split('-').map(Number);
-const entries = [];
-const date = new Date(year, month - 1, 1);
-
-while (date.getMonth() === month - 1) {
+  while (date.getMonth() === month - 1) {
     const dateStr = date.toISOString().split('T')[0];
     const shifts = getAllShifts().filter(shift => {
-    const id = `${dateStr}-${shift}`;
-    return document.getElementById(id)?.checked;
+      const id = `${dateStr}-${shift}`;
+      return document.getElementById(id)?.checked;
     });
     if (shifts.length > 0) {
-    entries.push({ date: dateStr, shifts });
+      entries.push({ date: dateStr, shifts });
     }
     date.setDate(date.getDate() + 1);
-}
-// submitData() 内の処理中表示変更部分
-const submitBtn = document.getElementById('submitBtn');
-submitBtn.innerText = '処理中...';
-submitBtn.disabled = true;
+  }
 
-// 送信用のペイロードを組み立て
-const payload = {
-title: title,
-entries: entries
-};
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.innerText = '処理中...';
+  submitBtn.disabled = true;
 
-// fetch で GAS API を呼び出す
-fetch(GAS_API_URL, {
-method: 'POST',
-mode: 'cors', 
-headers: {
-  'Content-Type': 'application/json',
-  // 必要ならここに APIキー認証を追加
-  // 'Authorization': 'Bearer your-api-key'
-},
-body: JSON.stringify(payload)
-})
-.then(res => res.json())
-.then(result => {
-// 完了演出：ボタンを戻してアラート
-submitBtn.innerText = 'シフトを登録';
-submitBtn.disabled = false;
-if (result.status === 'OK') {
-  alert('登録完了しました');
-} else {
-  alert('登録に失敗しました: ' + JSON.stringify(result));
-}
-})
-.catch(err => {
-console.error(err);
-submitBtn.innerText = 'シフトを登録';
-submitBtn.disabled = false;
-alert('エラーが発生しました');
-});
+  // ✅ fetchでPOSTリクエスト送信
+    fetch(WebApp_URL, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: JSON.stringify({ title, entries })
+    })
+    .then(response => {
+        console.log("HTTP status:", response.status);  // ←★追加
+        return response.text();
+    })
+    .then(result => {
+        console.log("サーバーからのレスポンス:", result);  // ←★追加
+        alert('登録完了しました');
+    })
+    .catch(err => {
+        console.error("fetch失敗:", err);  // ←★追加
+        alert('登録に失敗しました: ' + err);
+    });
 }
 
 // 初期実行
-// ⑩ ページ読み込み時の初期化
 generateMonthOptions();
 generateCalendar();
 document.getElementById('monthSelector').addEventListener('change', generateCalendar);
-document.getElementById('toggleXYZ').addEventListener('click', toggleXYZ);
-document.getElementById('submitBtn').addEventListener('click', submitData);
+    

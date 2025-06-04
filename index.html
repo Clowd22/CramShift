@@ -15,7 +15,11 @@
       <span class="app-title">明光義塾 シフト入力アプリケーション</span>
     </header>
     <!-- ──── ここまでヘッダー部分 ──── -->
-       <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+    <div id="warningBox" style="position: relative; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+    <button onclick="document.getElementById('warningBox').style.display='none';" 
+            style="position: absolute; top: -25px; right: 6px; background: transparent; border: none; font-size: 1.2rem; color: #856404; cursor: pointer;">
+      ✕
+    </button>
     <strong style="color: #856404; font-size: 1.1rem;">⚠️ 「Googleで確認されていないアプリ」という警告について</strong>
     <p style="color: #856404; margin-top: 0.5rem;">
       本アプリは現在、GoogleによるOAuth審査中のため、Googleログイン時に<br>
@@ -26,7 +30,7 @@
       ログインを続けるには、警告画面で <strong>「詳細」→「CramShift（安全ではないページに移動）」</strong> をクリックしてください。
     </p>
     <p style="color: #856404;">
-      また、現在LINEブラウザ上でログインの際、Googleの定める「安全なブラウザの使用」に関するポリシーに準拠していないとしてログインができない不具合を確認しています。<br>
+      また、LINEブラウザ上ではログインの際Googleの定める「安全なブラウザの使用」に関するポリシーに準拠していないとしてログインができない不具合を確認しています。<br>
       大変お手数ですが、ご使用のブラウザにて改めてログインください。
     </p>
     </div>

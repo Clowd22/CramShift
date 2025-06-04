@@ -1,15 +1,22 @@
 <!DOCTYPE html>
 <html lang="ja">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="css/style.css">
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
-    </head>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
 
-    <body>
-    <h2>明光義塾 シフト入力</h2>
+  <body>
+    <!-- ──── ここからヘッダー部分 ──── -->
+    <header class="app-header">
+      <!-- ロゴ画像を img/logo.png に置いている想定 -->
+      <img src="img/logo.png" alt="アプリロゴ" class="app-logo" width="48" height="48">
+      <span class="app-title">明光義塾 シフト入力アプリケーション</span>
+    </header>
+    <!-- ──── ここまでヘッダー部分 ──── -->
 
+    <!-- 以下、既存のUIを配置 -->
     <!-- カレンダー登録名の入力欄 -->
     <label for="title">カレンダー登録名</label>
     <input type="text" id="title" placeholder="明光義塾勤務" />
@@ -31,5 +38,5 @@
     <button id="submitBtn" onclick="onShiftSubmitButtonClick()">シフト登録</button>
 
     <script src="js/script.js"></script>
-    </body>
+  </body>
 </html>

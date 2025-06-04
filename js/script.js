@@ -1,4 +1,4 @@
-const WebApp_URL = "https://script.google.com/macros/s/AKfycbwYB-_Lc24BVrdrPAwtgxaXSEh2ctt9LJb7Tok9G3hCV95t7l99mCqKfB615YzZZiBDXg/exec"
+const WebApp_URL = "https://script.google.com/macros/s/AKfycbz95yFzm3KY9lMz5P5v3EObhJkknCHgilyfVg1NGIlioidMjlV2vcehPJzi0iJu6xvBEA/exec"
 const SHIFTS_MAIN = ['A', 'B', 'C', 'D'];
 const SHIFTS_EXTRA = ['X', 'Y', 'Z'];
 let showXYZ = false;

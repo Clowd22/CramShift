@@ -4,30 +4,32 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="css/style.css">
-        <body>
-        <h2>明光義塾 シフト入力</h2>
-
-        <!-- カレンダー登録名の入力欄 -->
-        <label for="title">カレンダー登録名</label>
-        <input type="text" id="title" placeholder="明光義塾勤務" />
-
-        <!-- 対象月のセレクター -->
-        <label for="monthSelector">対象月</label>
-        <select id="monthSelector"></select>
-
-        <!-- XYZコマの表示切替ボタン -->
-        <button id="toggleXYZ" onclick="toggleXYZ()">X, Y, Z コマを表示する</button>
-
-        <!-- 処理中の表示 -->
-        <div id="loading">処理中...</div>
-
-        <!-- カレンダー部分 -->
-        <div id="calendar" class="calendar"></div>
-
-        <!-- 送信ボタン -->
-        <button id="submitBtn" onclick="submitData()">シフトを登録</button>
-    
-        <script src="js/script.js"></script>
-        </body>
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
     </head>
+
+    <body>
+    <h2>明光義塾 シフト入力</h2>
+
+    <!-- カレンダー登録名の入力欄 -->
+    <label for="title">カレンダー登録名</label>
+    <input type="text" id="title" placeholder="明光義塾勤務" />
+
+    <!-- 対象月のセレクター -->
+    <label for="monthSelector">対象月</label>
+    <select id="monthSelector"></select>
+
+    <!-- XYZコマの表示切替ボタン -->
+    <button id="toggleXYZ" onclick="toggleXYZ()">X, Y, Z コマを表示する</button>
+
+    <!-- 処理中の表示 -->
+    <div id="loading">処理中...</div>
+
+    <!-- カレンダー部分 -->
+    <div id="calendar" class="calendar"></div>
+
+    <!-- 送信ボタン -->
+    <button id="submitBtn" onclick="onShiftSubmitButtonClick()">シフト登録</button>
+
+    <script src="js/script.js"></script>
+    </body>
 </html>

@@ -45,7 +45,7 @@ box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 
 .day strong {
 display: block;
-font-size: 1.5rem;
+font-size: 1.0rem;
 margin-bottom: 1.0rem;
 color: #007bff;
 }
@@ -65,10 +65,11 @@ padding: 8px 14px;
 border: 1px solid #ccc;
 border-radius: 12px;
 cursor: pointer;
-font-size: 2rem;
+font-size: 1rem;
 user-select: none;
 background-color: #f2f2f2;
 }
+
 
 .shift-btn input {
 display: none;
@@ -103,7 +104,6 @@ font-weight: bold;
 color: #555;
 }
 
-
 .app-header {
   display: flex;
   align-items: center;
@@ -120,7 +120,7 @@ color: #555;
 }
 
 .app-title {
-  font-size: 1.5rem;
+  font-size: 1.0rem;
   font-weight: bold;
   color: #333;
   margin: 0;

@@ -22,6 +22,12 @@ let showXYZ = false;
 let accessToken = null;
 let tokenClient = null;
 
+// Gemini API 設定
+// ⚠️ 注意：APIキーはGoogle AI Studioから取得してください
+// https://aistudio.google.com/apikey
+const GEMINI_API_KEY = 'AIzaSyDMyk6m-gzD4ssihfzmUW_sJteWiEbdf10'; // ← ここにキーを貼り付け
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
 // ページ読み込み時に一度だけ実行
 window.onload = () => {
   // 1) OAuth クライアントを初期化
@@ -237,4 +243,163 @@ function toggleXYZ() {
   showXYZ = !showXYZ;
   document.getElementById('toggleXYZ').innerText = showXYZ ? 'X, Y, Z コマを非表示にする' : 'X, Y, Z コマを表示する';
   generateCalendar();
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// 6. 画像解析機能（Gemini API 連携）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 画像ファイルを Base64 エンコードする
+ */
+function encodeImageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // data:image/png;base64,... の形式から base64 部分のみを抽出
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Gemini API に画像を送信して、シフト情報を解析する
+ */
+async function analyzeImage() {
+  const fileInput = document.getElementById('shiftImage');
+  const file = fileInput.files[0];
+
+  if (!file) {
+    alert('画像ファイルを選択してください');
+    return;
+  }
+
+  // UI フィードバック
+  const analyzeBtn = event.target;
+  analyzeBtn.disabled = true;
+  const originalText = analyzeBtn.textContent;
+  analyzeBtn.textContent = '解析中...';
+
+  try {
+    // 1) 画像を Base64 エンコード
+    const base64Image = await encodeImageToBase64(file);
+    const mimeType = file.type; // e.g., "image/png"
+
+    // 2) Gemini API に送信
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: `この画像はシフト表です。カレンダーの各日付セルの中で、青色（または黄色）の背景色がついているシフト記号（アルファベット）のみを読み取ってください。
+                
+出力は以下のJSON形式**だけ**にしてください。余計な説明は不要です。
+
+[
+  {"day": 1, "shifts": ["B", "C", "D"]},
+  {"day": 2, "shifts": ["A", "B"]},
+  ...
+]
+
+注意：
+1. 背景が白い部分のアルファベットは無視すること
+2. 色付きの背景がある日付と、その中のシフト記号だけを抽出
+3. JSON形式以外は返さないこと`
+              },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Gemini API Error:', errorData);
+      throw new Error(`Gemini API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // 3) レスポンスから JSON を抽出・解析
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('Gemini Response:', responseText);
+
+    // JSON ブロックを抽出（```json ... ``` または直接 [...] の形式に対応）
+    let jsonStr = responseText;
+    const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    } else {
+      const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        jsonStr = arrayMatch[0];
+      }
+    }
+
+    const analysisResult = JSON.parse(jsonStr);
+    console.log('Parsed Result:', analysisResult);
+
+    // 4) 結果をチェックボックスに反映
+    applyAnalysisToCheckboxes(analysisResult);
+
+    alert('画像解析が完了しました。シフトが自動入力されました。');
+  } catch (error) {
+    console.error('Error analyzing image:', error);
+    alert(`エラーが発生しました: ${error.message}`);
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = originalText;
+  }
+}
+
+/**
+ * 解析結果をチェックボックスに反映する
+ * @param {Array} analysisResult - [{"day": 1, "shifts": ["B", "C"]}, ...]
+ */
+function applyAnalysisToCheckboxes(analysisResult) {
+  if (!Array.isArray(analysisResult)) {
+    console.error('Invalid analysis result format');
+    return;
+  }
+
+  // 現在選択されている月を取得
+  const selected = document.getElementById('monthSelector').value;
+  const [year, month] = selected.split('-').map(Number);
+
+  // 解析結果をループして、チェックボックスを ON にする
+  analysisResult.forEach(({ day, shifts }) => {
+    if (!Array.isArray(shifts)) return;
+
+    shifts.forEach(shift => {
+      // 日付を YYYY-MM-DD 形式で作成
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const checkboxId = `${dateStr}-${shift}`;
+      const checkbox = document.getElementById(checkboxId);
+
+      if (checkbox) {
+        checkbox.checked = true;
+        // チェックボックスの親 label に 'active' クラスを付与
+        if (checkbox.parentElement && checkbox.parentElement.classList) {
+          checkbox.parentElement.classList.add('active');
+        }
+      } else {
+        console.warn(`Checkbox not found: ${checkboxId}`);
+      }
+    });
+  });
 }

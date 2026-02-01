@@ -35,7 +35,12 @@ function getGeminiApiKeyFromStorage() {
   const storedKey = localStorage.getItem('geminiApiKey');
   if (storedKey) {
     GEMINI_API_KEY = storedKey;
+    return GEMINI_API_KEY;
   }
+  
+  // ローカルストレージに無い場合、環境変数から取得を試みる
+  // 注：静的なHTMLでは、通常はサーバー側で環境変数をテンプレートに埋め込む必要があります
+  // ここではプレースホルダーとします
   return GEMINI_API_KEY;
 }
 

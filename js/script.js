@@ -27,7 +27,14 @@ let tokenClient = null;
 // 本番環境では、環境変数またはサーバー側で管理してください
 let GEMINI_API_KEY = null;
 const GEMINI_API_MODEL = 'gemini-1.5-flash';
+// ✅ v1 API を使用（v1beta は deprecated）
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+
+// デバッグ用：コンソールに設定を出力
+console.log('🔧 Gemini API Configuration loaded:');
+console.log('  Model:', GEMINI_API_MODEL);
+console.log('  API URL:', GEMINI_API_URL);
+console.log('  API Version: v1 (stable)');
 
 /**
  * ローカルストレージから Gemini API キーを取得

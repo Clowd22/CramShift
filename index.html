@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- キャッシュ無効化 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
@@ -50,16 +54,16 @@
     </p>
     </section>
     <!-- 以下、既存のUIを配置 -->
-    <div style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px;">
+    <form style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px;">
       <h3 style="margin-top: 0; color: #856404;">⚙️ Gemini API キーの設定</h3>
       <p style="color: #856404; font-size: 0.9rem;">
         初回のみ、<a href="https://aistudio.google.com/apikey" target="_blank" style="color: #0066cc;">Google AI Studio</a> から APIキーを取得して、下記に貼り付けてください。<br>
         ブラウザのローカルストレージに保存されます（サーバーに送信されません）。
       </p>
-      <input type="password" id="geminiApiKey" placeholder="Google Gemini API キーを入力" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
-      <button onclick="saveGeminiApiKey()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+      <input type="password" id="geminiApiKey" placeholder="Google Gemini API キーを入力" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" autocomplete="off">
+      <button type="button" onclick="saveGeminiApiKey()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
       <span id="apiKeyStatus" style="margin-left: 1rem; font-size: 0.9rem;"></span>
-    </div>
+    </form>
     <div style="margin-bottom: 1rem; padding: 1rem; background: #e9ecef; border-radius: 8px;">
       <label for="shiftImage">シフト画像をアップロードして自動入力</label>
       <input type="file" id="shiftImage" accept="image/*">
@@ -85,7 +89,8 @@
     <!-- 送信ボタン -->
     <button id="submitBtn" onclick="onShiftSubmitButtonClick()">シフト登録</button>
 
-    <script src="js/script.js"></script>
+    <!-- キャッシュバスタ付きでscript.js を読み込み -->
+    <script src="js/script.js?v=1.0"></script>
         <footer style="text-align: center; margin-top: 2rem; font-size: 0.9rem; color: #777;">
     <p>
         <a href="privacy-policy.html" target="_blank">プライバシーポリシー</a> 

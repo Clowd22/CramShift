@@ -25,19 +25,16 @@ let tokenClient = null;
 // 画像解析の一時結果（確認用）
 let pendingAnalysisResult = null;
 
-// Gemini API 設定
-// 本番環境では環境変数から読み込みます
-let GEMINI_API_KEY = 'AIzaSyCfpkVSLXpaDDxScCcypv4mCYq4OlhIIVc'; // 開発環境用（本番では削除）
-const GEMINI_API_MODEL = 'gemini-2.5-flash'; // ✅ 最新モデル（2024年12月時点）
-// ✅ v1 API を使用（v1beta は deprecated）
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
+// Gemini API 設定（Google Apps Script経由）
+// APIキーはGAS側で管理されているため、クライアント側には露出しません
+const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyMeqrB_fLT6C454GDPjC1d710JHSPpZgGVy_M_teGw8yAXcWF9xmnkBTGwOVDlLouE7w/exec';
+const GEMINI_API_MODEL = 'gemini-1.5-flash-001'; // GAS側で使用しているモデル
 
 // デバッグ用：コンソールに設定を出力
 console.log('🔧 Gemini API Configuration loaded:');
 console.log('  Model:', GEMINI_API_MODEL);
-console.log('  API URL:', GEMINI_API_URL);
-console.log('  API Version: v1 (stable)');
-console.log('  Note: gemini-2.5-flash is the latest available model');
+console.log('  GAS Endpoint:', GAS_ENDPOINT);
+console.log('  Security: API key managed by Google Apps Script');
 
 // ページ読み込み時に一度だけ実行
 window.onload = () => {
@@ -358,12 +355,6 @@ function resetAnalysisReview() {
  * Gemini API に画像を送信して、シフト情報を解析する
  */
 async function analyzeImage() {
-  // APIキーが設定されているか確認
-  if (!GEMINI_API_KEY) {
-    alert('Gemini API キーが設定されていません。管理者に連絡してください。');
-    return;
-  }
-
   const fileInput = document.getElementById('shiftImage');
   const file = fileInput.files[0];
 
@@ -385,18 +376,13 @@ async function analyzeImage() {
     const base64Image = await encodeImageToBase64(file);
     const mimeType = file.type; // e.g., "image/png"
 
-    // 2) Gemini API に送信
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
+    // 2) GAS経由でGemini APIに送信（APIキーはGAS側で管理）
+    const requestPayload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
       カレンダーの各日付セルにある「アルファベット（A, B, C, D...）」を**一文字ずつ個別に**判定し、
       **「青色の背景（確定シフト）」になっているものだけ**を抽出してください。
 
@@ -421,16 +407,25 @@ async function analyzeImage() {
         {"day": 24, "shifts": ["B", "C", "D"]},
         {"day": 25, "shifts": ["C"]}
       ]`
+            },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Image,
               },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const response = await fetch(GAS_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestPayload),
+    });
       }),
     });
 
@@ -441,10 +436,9 @@ async function analyzeImage() {
       } catch (e) {
         errorData = await response.text();
       }
-      console.error('Gemini API Error Status:', response.status);
-      console.error('Gemini API Error Details:', errorData);
-      console.error('API Key (first 20 chars):', GEMINI_API_KEY.substring(0, 20) + '...');
-      console.error('API URL:', GEMINI_API_URL);
+      console.error('GAS/Gemini API Error Status:', response.status);
+      console.error('GAS/Gemini API Error Details:', errorData);
+      console.error('GAS Endpoint:', GAS_ENDPOINT);
       console.error('Model:', GEMINI_API_MODEL);
       
       // より詳しいエラーメッセージを作成

@@ -18,8 +18,26 @@
       <img src="img/logo.png" alt="アプリロゴ" class="app-logo" width="48" height="48">
       <span class="app-title">明光義塾 シフト入力アプリケーション</span>
     </header>
-    <!-- ──── ここからメインコンテンツ部分 ──── -->
-    <main class="app-main">
+    <!-- ──── ここまでヘッダー部分 ──── -->
+    <div id="warningBox" style="position: relative; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+    <button onclick="document.getElementById('warningBox').style.display='none';" 
+            style="position: absolute; top: 8px; right: -7px; background: transparent; border: none; font-size: 1.2rem; color: #ff0000; cursor: pointer;">
+    【閉じる】
+    </button>
+    <strong style="color: #856404; font-size: 1.1rem;">⚠️ 「Googleで確認されていないアプリ」という警告について</strong>
+    <p style="color: #856404; margin-top: 0.5rem;">
+      本アプリは現在、GoogleによるOAuth審査中のため、Googleログイン時に<br>
+      <em>「このアプリはGoogleで確認されていません」</em> という警告が表示されます。
+    </p>
+    <p style="color: #856404;">
+      この警告はセキュリティの一環で表示されるものであり、アプリの危険性を示すものではありません。<br>
+      ログインを続けるには、警告画面で <strong>「詳細」→「CramShift（安全ではないページに移動）」</strong> をクリックしてください。
+    </p>
+    <p style="color: #856404;">
+      また、LINEブラウザ上ではログインの際Googleの定める「安全なブラウザの使用」に関するポリシーに準拠していないとしてログインができない不具合を確認しています。<br>
+      大変お手数ですが、ご使用のブラウザにて改めてログインください。
+    </p>
+    </div>
     <section style="background-color: #f8f9fa; border: 1px solid #ddd; padding: 1rem; border-radius: 8px; margin-top: 1.5rem;">
     <h2 style="margin-top: 0; font-size: 1.4rem; color: #333;">📘 アプリの使い方</h2>
     <p>

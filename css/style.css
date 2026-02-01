@@ -1,9 +1,11 @@
 /* 全体のフォントとレイアウト設定 */
 body {
-font-family: sans-serif;
-padding: 1rem;
-max-width: 900px;
-margin: auto;
+  font-family: "Noto Sans JP", sans-serif;
+  padding: 1rem;
+  max-width: 980px;
+  margin: auto;
+  background: #f7f9fc;
+  color: #222;
 }
 
 h2 {
@@ -82,18 +84,24 @@ border-color: #007bff;
 }
 
 button {
-margin-top: 1.5rem;
-background-color: #28a745;
-color: white;
-padding: 10px 20px;
-border: none;
-border-radius: 8px;
-font-size: 1rem;
-cursor: pointer;
+  margin-top: 1.5rem;
+  background-color: #28a745;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.05s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
 }
 
 button:hover {
-background-color: #218838;
+  background-color: #218838;
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 #loading {
@@ -124,4 +132,102 @@ color: #555;
   font-weight: bold;
   color: #333;
   margin: 0;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 24px rgba(20, 40, 80, 0.06);
+}
+
+.card-header {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.6rem;
+  color: #1f2a44;
+}
+
+.muted {
+  color: #4b5563;
+  margin: 0.3rem 0 0.8rem;
+  line-height: 1.5;
+}
+
+.hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.inline-label {
+  min-width: 88px;
+  font-weight: 600;
+}
+
+.file-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.analysis-review.hidden {
+  display: none;
+}
+
+.analysis-summary {
+  background: #f1f5f9;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #1f2a44;
+  margin-bottom: 0.6rem;
+}
+
+.analysis-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.analysis-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  background: #ffffff;
+}
+
+.analysis-day {
+  font-weight: 700;
+  color: #2563eb;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.analysis-shifts {
+  color: #111827;
+}
+
+.analysis-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.btn-secondary {
+  background: #64748b;
+  box-shadow: none;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
 }

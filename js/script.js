@@ -22,10 +22,12 @@ let showXYZ = false;
 let accessToken = null;
 let tokenClient = null;
 
+// 画像解析の一時結果（確認用）
+let pendingAnalysisResult = null;
+
 // Gemini API 設定
-// APIキーはローカルストレージから取得します
-// 本番環境では、環境変数またはサーバー側で管理してください
-let GEMINI_API_KEY = null;
+// 本番環境では環境変数から読み込みます
+let GEMINI_API_KEY = 'AIzaSyCfpkVSLXpaDDxScCcypv4mCYq4OlhIIVc'; // 開発環境用（本番では削除）
 const GEMINI_API_MODEL = 'gemini-2.5-flash'; // ✅ 最新モデル（2024年12月時点）
 // ✅ v1 API を使用（v1beta は deprecated）
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
@@ -37,62 +39,8 @@ console.log('  API URL:', GEMINI_API_URL);
 console.log('  API Version: v1 (stable)');
 console.log('  Note: gemini-2.5-flash is the latest available model');
 
-/**
- * ローカルストレージから Gemini API キーを取得
- */
-function getGeminiApiKeyFromStorage() {
-  const storedKey = localStorage.getItem('geminiApiKey');
-  if (storedKey) {
-    GEMINI_API_KEY = storedKey;
-    return GEMINI_API_KEY;
-  }
-  
-  // ローカルストレージに無い場合、環境変数から取得を試みる
-  // 注：静的なHTMLでは、通常はサーバー側で環境変数をテンプレートに埋め込む必要があります
-  // ここではプレースホルダーとします
-  return GEMINI_API_KEY;
-}
-
-/**
- * Gemini API キーをローカルストレージに保存
- */
-function saveGeminiApiKey() {
-  const keyInput = document.getElementById('geminiApiKey');
-  const apiKey = keyInput.value.trim();
-  
-  if (!apiKey) {
-    alert('APIキーを入力してください');
-    return;
-  }
-  
-  if (apiKey.length < 10) {ｘ
-    alert('APIキーが短すぎます。正しい値を入力してください');
-    return;
-  }
-  
-  localStorage.setItem('geminiApiKey', apiKey);
-  GEMINI_API_KEY = apiKey;
-  
-  const status = document.getElementById('apiKeyStatus');
-  status.textContent = '✅ 保存されました（' + apiKey.substring(0, 10) + '...）';
-  status.style.color = '#28a745';
-  
-  // 入力欄をクリア
-  keyInput.value = '';
-}
-
 // ページ読み込み時に一度だけ実行
 window.onload = () => {
-  // APIキーがローカルストレージに保存されているか確認
-  getGeminiApiKeyFromStorage();
-  
-  // APIキーが保存されている場合、UIに反映
-  if (GEMINI_API_KEY) {
-    const status = document.getElementById('apiKeyStatus');
-    status.textContent = '✅ 設定済み（' + GEMINI_API_KEY.substring(0, 10) + '...）';
-    status.style.color = '#28a745';
-  }
-  
   // 1) OAuth クライアントを初期化
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: '522781888329-7tte6vtlcea2u3bbn4shd1tivl2u451n.apps.googleusercontent.com',
@@ -330,16 +278,89 @@ function encodeImageToBase64(file) {
 }
 
 /**
+ * 解析結果を確認UIに表示する
+ */
+function renderAnalysisReview(analysisResult) {
+  const review = document.getElementById('analysisReview');
+  const summary = document.getElementById('analysisSummary');
+  const list = document.getElementById('analysisList');
+
+  if (!review || !summary || !list) return;
+
+  if (!Array.isArray(analysisResult) || analysisResult.length === 0) {
+    summary.textContent = '抽出結果が見つかりませんでした。画像を見直して再試行してください。';
+    list.innerHTML = '';
+    review.classList.remove('hidden');
+    return;
+  }
+
+  const totalShifts = analysisResult.reduce((sum, item) => {
+    if (!item || !Array.isArray(item.shifts)) return sum;
+    return sum + item.shifts.length;
+  }, 0);
+
+  summary.textContent = `抽出日数: ${analysisResult.length}日 / 合計シフト: ${totalShifts}件`;
+
+  const sorted = [...analysisResult].sort((a, b) => (a.day || 0) - (b.day || 0));
+  list.innerHTML = '';
+
+  sorted.forEach(item => {
+    const day = item.day ?? '-';
+    const shifts = Array.isArray(item.shifts) && item.shifts.length > 0
+      ? item.shifts.join(', ')
+      : '—';
+
+    const div = document.createElement('div');
+    div.className = 'analysis-item';
+    div.innerHTML = `
+      <span class="analysis-day">${day}日</span>
+      <span class="analysis-shifts">${shifts}</span>
+    `;
+    list.appendChild(div);
+  });
+
+  review.classList.remove('hidden');
+}
+
+/**
+ * 確認済みの解析結果を反映する
+ */
+function applyPendingAnalysis() {
+  if (!pendingAnalysisResult) {
+    alert('反映できる結果がありません。先に画像から自動入力を実行してください。');
+    return;
+  }
+
+  applyAnalysisToCheckboxes(pendingAnalysisResult);
+  const summary = document.getElementById('analysisSummary');
+  if (summary) {
+    summary.textContent = '✅ 反映しました。内容をご確認ください（必要なら手動で調整できます）。';
+  }
+  alert('自動入力候補を反映しました。内容をご確認ください。');
+  pendingAnalysisResult = null;
+}
+
+/**
+ * 確認パネルをリセット
+ */
+function resetAnalysisReview() {
+  pendingAnalysisResult = null;
+  const review = document.getElementById('analysisReview');
+  const summary = document.getElementById('analysisSummary');
+  const list = document.getElementById('analysisList');
+
+  if (summary) summary.textContent = '';
+  if (list) list.innerHTML = '';
+  if (review) review.classList.add('hidden');
+}
+
+/**
  * Gemini API に画像を送信して、シフト情報を解析する
  */
 async function analyzeImage() {
   // APIキーが設定されているか確認
   if (!GEMINI_API_KEY) {
-    getGeminiApiKeyFromStorage();
-  }
-  
-  if (!GEMINI_API_KEY) {
-    alert('Gemini API キーが設定されていません。上の「Gemini API キーの設定」欄にキーを入力してください。');
+    alert('Gemini API キーが設定されていません。管理者に連絡してください。');
     return;
   }
 
@@ -352,10 +373,12 @@ async function analyzeImage() {
   }
 
   // UI フィードバック
-  const analyzeBtn = event.target;
-  analyzeBtn.disabled = true;
-  const originalText = analyzeBtn.textContent;
-  analyzeBtn.textContent = '解析中...';
+  const analyzeBtn = document.getElementById('autoInputBtn');
+  const originalText = analyzeBtn ? analyzeBtn.textContent : null;
+  if (analyzeBtn) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = '自動入力中...';
+  }
 
   try {
     // 1) 画像を Base64 エンコード
@@ -373,20 +396,31 @@ async function analyzeImage() {
           {
             parts: [
               {
-                text: `この画像はシフト表です。カレンダーの各日付セルの中で、青色（または黄色）の背景色がついているシフト記号（アルファベット）のみを読み取ってください。
-                
-出力は以下のJSON形式**だけ**にしてください。余計な説明は不要です。
+                text: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
+      カレンダーの各日付セルにある「アルファベット（A, B, C, D...）」を**一文字ずつ個別に**判定し、
+      **「青色の背景（確定シフト）」になっているものだけ**を抽出してください。
 
-[
-  {"day": 1, "shifts": ["B", "C", "D"]},
-  {"day": 2, "shifts": ["A", "B"]},
-  ...
-]
+      【絶対に守るべき抽出ルール】
+      1. **一文字単位で判定**:
+         - 同じ日付の中に「黄色のシフト（希望）」と「青色のシフト（確定）」が混在しています。
+         - **隣が黄色であっても、その文字が青色背景なら必ず抽出してください。**
+      
+      2. **具体例**:
+         - **18日や25日**を見てください。「B」と「D」は黄色ですが、真ん中の**「C」は青色**です。この「C」を見逃さず抽出してください。
+         - **24日**を見てください。「B」も青色です。B, C, Dすべて抽出してください。
 
-注意：
-1. 背景が白い部分のアルファベットは無視すること
-2. 色付きの背景がある日付と、その中のシフト記号だけを抽出
-3. JSON形式以外は返さないこと`
+      3. **除外対象**:
+         - 黄色の文字、黄色の背景、白い背景の文字はすべて無視してください。
+
+      【出力形式】
+      以下のJSONフォーマット（配列）**のみ**を出力してください。Markdown記法は不要です。
+
+      [
+        {"day": 3, "shifts": ["B", "C", "D"]},
+        {"day": 18, "shifts": ["C"]},
+        {"day": 24, "shifts": ["B", "C", "D"]},
+        {"day": 25, "shifts": ["C"]}
+      ]`
               },
               {
                 inlineData: {
@@ -443,16 +477,19 @@ async function analyzeImage() {
     const analysisResult = JSON.parse(jsonStr);
     console.log('Parsed Result:', analysisResult);
 
-    // 4) 結果をチェックボックスに反映
-    applyAnalysisToCheckboxes(analysisResult);
+    // 4) 結果を確認パネルに表示（ユーザー確認後に反映）
+    pendingAnalysisResult = analysisResult;
+    renderAnalysisReview(analysisResult);
 
-    alert('画像解析が完了しました。シフトが自動入力されました。');
+    alert('自動入力候補を表示しました。内容を確認して反映してください。');
   } catch (error) {
     console.error('Error analyzing image:', error);
     alert(`エラーが発生しました: ${error.message}`);
   } finally {
-    analyzeBtn.disabled = false;
-    analyzeBtn.textContent = originalText;
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = originalText;
+    }
   }
 }
 

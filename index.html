@@ -54,20 +54,29 @@
     </p>
     </section>
     <!-- 以下、既存のUIを配置 -->
-    <form style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px;">
-      <h3 style="margin-top: 0; color: #856404;">⚙️ Gemini API キーの設定</h3>
-      <p style="color: #856404; font-size: 0.9rem;">
-        初回のみ、<a href="https://aistudio.google.com/apikey" target="_blank" style="color: #0066cc;">Google AI Studio</a> から APIキーを取得して、下記に貼り付けてください。<br>
-        ブラウザのローカルストレージに保存されます（サーバーに送信されません）。
+    <div class="card">
+      <div class="card-header">🖼️ 画像から自動入力</div>
+      <p class="muted">
+        シフト表のスクリーンショットを読み取り、候補を自動入力します。<br>
+        <strong>誤認識の可能性があるため、反映前に必ず確認してください。</strong>
       </p>
-      <input type="password" id="geminiApiKey" placeholder="Google Gemini API キーを入力" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" autocomplete="off">
-      <button type="button" onclick="saveGeminiApiKey()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
-      <span id="apiKeyStatus" style="margin-left: 1rem; font-size: 0.9rem;"></span>
-    </form>
-    <div style="margin-bottom: 1rem; padding: 1rem; background: #e9ecef; border-radius: 8px;">
-      <label for="shiftImage">シフト画像をアップロードして自動入力</label>
-      <input type="file" id="shiftImage" accept="image/*">
-      <button onclick="analyzeImage()">画像を解析して反映</button>
+      <div class="inline-row">
+        <label for="shiftImage" class="inline-label">シフト画像</label>
+        <input type="file" id="shiftImage" accept="image/*" class="file-input">
+        <button id="autoInputBtn" type="button" onclick="analyzeImage()">画像から自動入力</button>
+      </div>
+      <p class="hint">※ 画像の解像度や色の違いで結果が変わる場合があります。</p>
+    </div>
+
+    <div id="analysisReview" class="card analysis-review hidden">
+      <div class="card-header">✅ 自動入力候補の確認</div>
+      <p class="muted">以下の内容が読み取られました。内容を確認し、問題なければ反映してください。</p>
+      <div id="analysisSummary" class="analysis-summary"> </div>
+      <div id="analysisList" class="analysis-list"></div>
+      <div class="analysis-actions">
+        <button id="applyAnalysisBtn" type="button" onclick="applyPendingAnalysis()">この内容で反映する</button>
+        <button type="button" class="btn-secondary" onclick="resetAnalysisReview()">やり直す</button>
+      </div>
     </div>
     <!-- カレンダー登録名の入力欄 -->
     <label for="title">カレンダー登録名（何も入力しなければ「明光義塾勤務」とカレンダーに入力されます）</label>

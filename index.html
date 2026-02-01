@@ -50,6 +50,16 @@
     </p>
     </section>
     <!-- 以下、既存のUIを配置 -->
+    <div style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px;">
+      <h3 style="margin-top: 0; color: #856404;">⚙️ Gemini API キーの設定</h3>
+      <p style="color: #856404; font-size: 0.9rem;">
+        初回のみ、<a href="https://aistudio.google.com/apikey" target="_blank" style="color: #0066cc;">Google AI Studio</a> から APIキーを取得して、下記に貼り付けてください。<br>
+        ブラウザのローカルストレージに保存されます（サーバーに送信されません）。
+      </p>
+      <input type="password" id="geminiApiKey" placeholder="Google Gemini API キーを入力" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+      <button onclick="saveGeminiApiKey()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+      <span id="apiKeyStatus" style="margin-left: 1rem; font-size: 0.9rem;"></span>
+    </div>
     <div style="margin-bottom: 1rem; padding: 1rem; background: #e9ecef; border-radius: 8px;">
       <label for="shiftImage">シフト画像をアップロードして自動入力</label>
       <input type="file" id="shiftImage" accept="image/*">

@@ -23,13 +23,62 @@ let accessToken = null;
 let tokenClient = null;
 
 // Gemini API 設定
-// ⚠️ 注意：APIキーはGoogle AI Studioから取得してください
-// https://aistudio.google.com/apikey
-const GEMINI_API_KEY = 'AIzaSyDMyk6m-gzD4ssihfzmUW_sJteWiEbdf10'; // ← ここにキーを貼り付け
+// APIキーはローカルストレージから取得します
+// 本番環境では、環境変数またはサーバー側で管理してください
+let GEMINI_API_KEY = null;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+/**
+ * ローカルストレージから Gemini API キーを取得
+ */
+function getGeminiApiKeyFromStorage() {
+  const storedKey = localStorage.getItem('geminiApiKey');
+  if (storedKey) {
+    GEMINI_API_KEY = storedKey;
+  }
+  return GEMINI_API_KEY;
+}
+
+/**
+ * Gemini API キーをローカルストレージに保存
+ */
+function saveGeminiApiKey() {
+  const keyInput = document.getElementById('geminiApiKey');
+  const apiKey = keyInput.value.trim();
+  
+  if (!apiKey) {
+    alert('APIキーを入力してください');
+    return;
+  }
+  
+  if (apiKey.length < 10) {
+    alert('APIキーが短すぎます。正しい値を入力してください');
+    return;
+  }
+  
+  localStorage.setItem('geminiApiKey', apiKey);
+  GEMINI_API_KEY = apiKey;
+  
+  const status = document.getElementById('apiKeyStatus');
+  status.textContent = '✅ 保存されました（' + apiKey.substring(0, 10) + '...）';
+  status.style.color = '#28a745';
+  
+  // 入力欄をクリア
+  keyInput.value = '';
+}
 
 // ページ読み込み時に一度だけ実行
 window.onload = () => {
+  // APIキーがローカルストレージに保存されているか確認
+  getGeminiApiKeyFromStorage();
+  
+  // APIキーが保存されている場合、UIに反映
+  if (GEMINI_API_KEY) {
+    const status = document.getElementById('apiKeyStatus');
+    status.textContent = '✅ 設定済み（' + GEMINI_API_KEY.substring(0, 10) + '...）';
+    status.style.color = '#28a745';
+  }
+  
   // 1) OAuth クライアントを初期化
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: '522781888329-7tte6vtlcea2u3bbn4shd1tivl2u451n.apps.googleusercontent.com',
@@ -270,6 +319,16 @@ function encodeImageToBase64(file) {
  * Gemini API に画像を送信して、シフト情報を解析する
  */
 async function analyzeImage() {
+  // APIキーが設定されているか確認
+  if (!GEMINI_API_KEY) {
+    getGeminiApiKeyFromStorage();
+  }
+  
+  if (!GEMINI_API_KEY) {
+    alert('Gemini API キーが設定されていません。上の「Gemini API キーの設定」欄にキーを入力してください。');
+    return;
+  }
+
   const fileInput = document.getElementById('shiftImage');
   const file = fileInput.files[0];
 
@@ -328,9 +387,17 @@ async function analyzeImage() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Gemini API Error:', errorData);
-      throw new Error(`Gemini API Error: ${response.status}`);
+      let errorData = null;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = await response.text();
+      }
+      console.error('Gemini API Error Status:', response.status);
+      console.error('Gemini API Error Details:', errorData);
+      console.error('API Key (first 20 chars):', GEMINI_API_KEY.substring(0, 20) + '...');
+      console.error('API URL:', GEMINI_API_URL);
+      throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();

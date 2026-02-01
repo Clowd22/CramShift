@@ -426,8 +426,6 @@ async function analyzeImage() {
       },
       body: JSON.stringify(requestPayload),
     });
-      }),
-    });
 
     if (!response.ok) {
       let errorData = null;

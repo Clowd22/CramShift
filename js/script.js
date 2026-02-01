@@ -26,7 +26,8 @@ let tokenClient = null;
 // APIキーはローカルストレージから取得します
 // 本番環境では、環境変数またはサーバー側で管理してください
 let GEMINI_API_KEY = null;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_API_MODEL = 'gemini-1.5-flash';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 
 /**
  * ローカルストレージから Gemini API キーを取得
@@ -56,7 +57,7 @@ function saveGeminiApiKey() {
     return;
   }
   
-  if (apiKey.length < 10) {
+  if (apiKey.length < 10) {ｘ
     alert('APIキーが短すぎます。正しい値を入力してください');
     return;
   }
@@ -402,7 +403,15 @@ async function analyzeImage() {
       console.error('Gemini API Error Details:', errorData);
       console.error('API Key (first 20 chars):', GEMINI_API_KEY.substring(0, 20) + '...');
       console.error('API URL:', GEMINI_API_URL);
-      throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      console.error('Model:', GEMINI_API_MODEL);
+      
+      // より詳しいエラーメッセージを作成
+      let errorMessage = `API Error: ${response.status}`;
+      if (errorData && errorData.error) {
+        errorMessage += ` - ${errorData.error.message}`;
+      }
+      
+      throw new Error(`Gemini ${errorMessage}`);
     }
 
     const data = await response.json();

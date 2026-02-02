@@ -25,16 +25,17 @@ let tokenClient = null;
 // 画像解析の一時結果（確認用）
 let pendingAnalysisResult = null;
 
-// Gemini API 設定（Vercel Functions経由でAPIキーを安全に管理）
-// APIキーはVercelの環境変数で管理されているため、クライアント側には露出しません
-const VERCEL_API_ENDPOINT = '/api/gemini';
+// Gemini API 設定（Google Apps Script経由でAPIキーを安全に管理）
+// APIキーはGASのスクリプトプロパティで管理されているため、クライアント側には露出しません
+const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwHM9XoghZjKHjBlmt_vwEE6IKgJRRXLn8JEdK_l9NmkOv-g9QH5evw7zp0DX_Q6oo8/exec';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models';
 const GEMINI_API_MODEL = 'gemini-1.5-flash-001';
 
-// デバッグ用：コンソールに設定を出力
+// デバッグ用:コンソールに設定を出力
 console.log('🔧 Gemini API Configuration loaded:');
 console.log('  Model:', GEMINI_API_MODEL);
-console.log('  Vercel Endpoint:', VERCEL_API_ENDPOINT);
-console.log('  Security: API key managed by Vercel Environment Variables');
+console.log('  GAS Endpoint:', GAS_ENDPOINT);
+console.log('  Security: API key managed by GAS Script Properties');
 
 // ページ読み込み時に一度だけ実行
 window.onload = () => {
@@ -374,12 +375,30 @@ async function analyzeImage() {
   try {
     // 1) 画像を Base64 エンコード
     const base64Image = await encodeImageToBase64(file);
+    const mimeType = file.type; // e.g., "image/png"
 
-    // 2) Vercel Functions経由でGemini APIを呼び出す
+    // 2) GASからAPIキーを取得
+    const gasResponse = await fetch(GAS_ENDPOINT);
+    if (!gasResponse.ok) {
+      throw new Error(`APIキーの取得に失敗しました (Status: ${gasResponse.status})`);
+    }
+    
+    const gasData = await gasResponse.json();
+    const { apiKey } = gasData;
+
+    if (!apiKey) {
+      throw new Error('APIキーが見つかりませんでした');
+    }
+    
+    console.log('✅ APIキーを取得しました（GASスクリプトプロパティ経由）');
+
+    // 3) Gemini APIに直接送信
     const requestPayload = {
-      image: base64Image,
-      image: base64Image,
-      prompt: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
+      contents: [
+        {
+          parts: [
+            {
+              text: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
       カレンダーの各日付セルにある「アルファベット（A, B, C, D...）」を**一文字ずつ個別に**判定し、
       **「青色の背景（確定シフト）」になっているものだけ**を抽出してください。
 
@@ -404,9 +423,20 @@ async function analyzeImage() {
         {"day": 24, "shifts": ["B", "C", "D"]},
         {"day": 25, "shifts": ["C"]}
       ]`
+            },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
     };
 
-    const response = await fetch(VERCEL_API_ENDPOINT, {
+    const geminiUrl = `${GEMINI_API_URL}/${GEMINI_API_MODEL}:generateContent?key=${apiKey}`;
+    const response = await fetch(geminiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -421,8 +451,9 @@ async function analyzeImage() {
       } catch (e) {
         errorData = await response.text();
       }
-      console.error('API Error Status:', response.status);
-      console.error('API Error Details:', errorData);
+      console.error('Gemini API Error Status:', response.status);
+      console.error('Gemini API Error Details:', errorData);
+      console.error('API URL:', geminiUrl.replace(apiKey, '***'));
       console.error('Model:', GEMINI_API_MODEL);
       
       // より詳しいエラーメッセージを作成
@@ -431,12 +462,12 @@ async function analyzeImage() {
         errorMessage += ` - ${errorData.error.message}`;
       }
       
-      throw new Error(`API ${errorMessage}`);
+      throw new Error(`Gemini ${errorMessage}`);
     }
 
     const data = await response.json();
 
-    // 3) レスポンスから JSON を抽出・解析
+    // 4) レスポンスから JSON を抽出・解析
     const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Gemini Response:', responseText);
 

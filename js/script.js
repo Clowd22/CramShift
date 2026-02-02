@@ -345,17 +345,27 @@ function applyPendingAnalysis() {
 }
 
 /**
- * 確認パネルをリセット
+ * 確認パネルをリセット（登録内容を修正）
+ * 解析結果をカレンダーに反映した上で、ユーザーに修正させる
  */
 function resetAnalysisReview() {
-  pendingAnalysisResult = null;
-  const review = document.getElementById('analysisReview');
-  const summary = document.getElementById('analysisSummary');
-  const list = document.getElementById('analysisList');
+  if (!pendingAnalysisResult) {
+    alert('反映できる結果がありません。先に画像から自動入力を実行してください。');
+    return;
+  }
 
-  if (summary) summary.textContent = '';
-  if (list) list.innerHTML = '';
+  // カレンダーに反映
+  applyAnalysisToCheckboxes(pendingAnalysisResult);
+  
+  // パネルを閉じる
+  const review = document.getElementById('analysisReview');
   if (review) review.classList.add('hidden');
+  
+  // ユーザーにメッセージを表示
+  alert('自動入力結果をカレンダーに反映しました。必要に応じて修正してください。');
+  
+  // 結果をクリア
+  pendingAnalysisResult = null;
 }
 
 /**

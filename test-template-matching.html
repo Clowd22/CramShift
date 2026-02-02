@@ -343,26 +343,21 @@
           const result = new cv.Mat();
           cv.matchTemplate(grayImage, templateGray, result, cv.TM_CCOEFF_NORMED);
 
-          // ピークを検出
-          const minVal = { value: 0 };
-          const maxVal = { value: 0 };
-          const minLoc = { x: 0, y: 0 };
-          const maxLoc = { x: 0, y: 0 };
-          
-          cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
+          // ピークを検出（OpenCV.jsは返り値としてオブジェクトを返す）
+          const minMax = cv.minMaxLoc(result);
 
-          debugLog.push(`[${shiftChar}] マッチングスコア: ${maxVal.value.toFixed(3)}`);
+          debugLog.push(`[${shiftChar}] マッチングスコア: ${minMax.maxVal.toFixed(3)}`);
 
-          if (maxVal.value > threshold) {
+          if (minMax.maxVal > threshold) {
             detectedShifts[shiftChar] = {
-              score: maxVal.value,
-              x: maxLoc.x,
-              y: maxLoc.y,
-              confidence: Math.round(maxVal.value * 100)
+              score: minMax.maxVal,
+              x: minMax.maxLoc.x,
+              y: minMax.maxLoc.y,
+              confidence: Math.round(minMax.maxVal * 100)
             };
-            debugLog.push(`[${shiftChar}] ✅ 検出成功！位置: (${maxLoc.x}, ${maxLoc.y})`);
+            debugLog.push(`[${shiftChar}] ✅ 検出成功！位置: (${minMax.maxLoc.x}, ${minMax.maxLoc.y})`);
           } else {
-            debugLog.push(`[${shiftChar}] ❌ 閾値以下（スコア ${maxVal.value.toFixed(3)} < ${threshold.toFixed(2)}）`);
+            debugLog.push(`[${shiftChar}] ❌ 閾値以下（スコア ${minMax.maxVal.toFixed(3)} < ${threshold.toFixed(2)}）`);
           }
 
           // メモリ解放

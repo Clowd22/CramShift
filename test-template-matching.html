@@ -138,18 +138,52 @@
     <div class="section">
       <h2>⚙️ 解析設定</h2>
       <label>マッチング閾値（0-1）：</label>
-      <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.7">
-      <span id="thresholdValue">0.70</span>
+      <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.5">
+      <span id="thresholdValue">0.50</span>
+      <small style="color: #666;">※ 閾値が低いほど多く検出されますが、誤検出も増えます</small>
       
       <label style="margin-top: 1rem;">最小マッチサイズ（ピクセル）：</label>
       <input type="range" id="minSize" min="5" max="100" step="5" value="20">
       <span id="minSizeValue">20</span>
+
+      <label style="margin-top: 1rem;">
+        <input type="checkbox" id="debugMode"> 🐛 デバッグモード（詳細ログ表示）
+      </label>
     </div>
 
     <div class="section">
       <h2>🎯 検出結果</h2>
       <div id="result"></div>
       <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="section">
+      <h2>📋 テンプレート確認</h2>
+      <p>以下は各シフト文字のテンプレート画像です。実際のシフト表の文字との一致度を確認してください：</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem;">
+        <div style="text-align: center;">
+          <img id="template-B" src="template/B_time.png" style="max-width: 100px; border: 1px solid #ddd; padding: 0.5rem;" alt="B">
+          <small>B</small>
+        </div>
+        <div style="text-align: center;">
+          <img id="template-C" src="template/C_time.png" style="max-width: 100px; border: 1px solid #ddd; padding: 0.5rem;" alt="C">
+          <small>C</small>
+        </div>
+        <div style="text-align: center;">
+          <img id="template-D" src="template/D_time.png" style="max-width: 100px; border: 1px solid #ddd; padding: 0.5rem;" alt="D">
+          <small>D</small>
+        </div>
+        <div style="text-align: center;">
+          <img id="template-X" src="template/X_time.png" style="max-width: 100px; border: 1px solid #ddd; padding: 0.5rem;" alt="X">
+          <small>X</small>
+        </div>
+        <div style="text-align: center;">
+          <img id="template-Y" src="template/Y_time.png" style="max-width: 100px; border: 1px solid #ddd; padding: 0.5rem;" alt="Y">
+          <small>Y</small>
+        </div>
+      </div>
+      <button onclick="checkTemplateImages()" style="margin-top: 1rem;">テンプレート読み込み確認</button>
+      <div id="templateStatus" style="margin-top: 1rem;"></div>
     </div>
   </div>
 
@@ -166,6 +200,37 @@
     document.getElementById('minSize').addEventListener('input', (e) => {
       document.getElementById('minSizeValue').textContent = e.target.value;
     });
+
+    /**
+     * テンプレート画像の読み込み確認
+     */
+    async function checkTemplateImages() {
+      const statusDiv = document.getElementById('templateStatus');
+      const shiftChars = ['B', 'C', 'D', 'X', 'Y'];
+      let allLoaded = true;
+      let html = '<div class="info"><strong>テンプレート読み込み結果：</strong><br>';
+
+      for (const char of shiftChars) {
+        const img = document.getElementById(`template-${char}`);
+        try {
+          // 画像の読み込み完了を確認
+          if (img.complete && img.naturalHeight > 0) {
+            html += `✅ ${char}: ${img.naturalWidth}×${img.naturalHeight}px<br>`;
+          } else {
+            html += `❌ ${char}: 読み込み中またはエラー<br>`;
+            allLoaded = false;
+          }
+        } catch (e) {
+          html += `❌ ${char}: エラー - ${e.message}<br>`;
+          allLoaded = false;
+        }
+      }
+
+      html += allLoaded ? '<br>✅ すべてのテンプレートが正常に読み込まれています。' : '<br>❌ いくつかのテンプレートで問題があります。パスを確認してください。';
+      html += '</div>';
+
+      statusDiv.innerHTML = html;
+    }
 
     /**
      * テンプレートマッチング + OCRでシフト表を解析
@@ -243,12 +308,34 @@
       const shiftChars = ['B', 'C', 'D', 'X', 'Y'];
       const detectedShifts = {};
       const threshold = parseFloat(document.getElementById('threshold').value);
+      const debug = document.getElementById('debugMode')?.checked || false;
+      const debugLog = [];
+
+      debugLog.push(`🔍 テンプレートマッチング開始（閾値: ${threshold.toFixed(2)}）`);
+      debugLog.push(`画像サイズ: ${grayImage.cols}×${grayImage.rows}px`);
 
       for (const shiftChar of shiftChars) {
         try {
           const templatePath = `template/${shiftChar}_time.png`;
-          const templateImg = await loadImage(templatePath);
+          const templateImg = new Image();
+          
+          // 画像の読み込みをPromiseで管理
+          await new Promise((resolve, reject) => {
+            templateImg.onload = resolve;
+            templateImg.onerror = () => reject(new Error(`テンプレート ${shiftChar} が見つかりません`));
+            templateImg.src = templatePath;
+          });
+
           const template = cv.imread(templateImg);
+          debugLog.push(`[${shiftChar}] テンプレートサイズ: ${template.cols}×${template.rows}px`);
+
+          // テンプレートがシフト表より大きくないか確認
+          if (template.cols > grayImage.cols || template.rows > grayImage.rows) {
+            debugLog.push(`[${shiftChar}] ⚠️ テンプレートが元画像より大きいため、スキップします`);
+            template.delete();
+            continue;
+          }
+
           const templateGray = new cv.Mat();
           cv.cvtColor(template, templateGray, cv.COLOR_RGBA2GRAY);
 
@@ -264,6 +351,8 @@
           
           cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
 
+          debugLog.push(`[${shiftChar}] マッチングスコア: ${maxVal.value.toFixed(3)}`);
+
           if (maxVal.value > threshold) {
             detectedShifts[shiftChar] = {
               score: maxVal.value,
@@ -271,6 +360,9 @@
               y: maxLoc.y,
               confidence: Math.round(maxVal.value * 100)
             };
+            debugLog.push(`[${shiftChar}] ✅ 検出成功！位置: (${maxLoc.x}, ${maxLoc.y})`);
+          } else {
+            debugLog.push(`[${shiftChar}] ❌ 閾値以下（スコア ${maxVal.value.toFixed(3)} < ${threshold.toFixed(2)}）`);
           }
 
           // メモリ解放
@@ -279,8 +371,13 @@
           result.delete();
 
         } catch (error) {
-          console.warn(`テンプレート ${shiftChar} 検出失敗:`, error);
+          debugLog.push(`[${shiftChar}] ❌ エラー: ${error.message}`);
         }
+      }
+
+      // デバッグログを表示
+      if (debug) {
+        detectedShifts.debugLog = debugLog.join('\n');
       }
 
       return detectedShifts;
@@ -292,12 +389,31 @@
     function displayResults(detectedShifts, originalMat, canvas) {
       const resultDiv = document.getElementById('result');
       
+      // デバッグログを分離
+      const debugLog = detectedShifts.debugLog;
+      delete detectedShifts.debugLog;
+
       // OCR抽出データを分離
       const ocrData = detectedShifts.ocrDates;
       delete detectedShifts.ocrDates;
 
       if (Object.keys(detectedShifts).length === 0) {
-        resultDiv.innerHTML = '<div class="error">❌ シフト文字が検出されませんでした。閾値を下げてみてください。</div>';
+        let html = '<div class="error">❌ シフト文字が検出されませんでした。</div>';
+        html += '<div class="info" style="margin-top: 1rem;"><strong>🔍 トラブルシューティング：</strong><br>';
+        html += '1. テンプレート確認で各画像が正常に読み込まれているか確認<br>';
+        html += '2. 「テンプレート読み込み確認」ボタンをクリックして、テンプレートのパスと内容を確認<br>';
+        html += '3. 閾値を0.3～0.5に下げてもう一度試す<br>';
+        html += '4. デバッグモードをONにしてログを確認する<br>';
+        html += '5. シフト表の画像品質が低い場合は、コントラストが高い写真を試す<br>';
+        html += '</div>';
+
+        if (debugLog) {
+          html += '<div class="info" style="margin-top: 1rem;"><strong>🐛 デバッグログ：</strong><br>';
+          html += '<pre style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;">' + debugLog + '</pre>';
+          html += '</div>';
+        }
+
+        resultDiv.innerHTML = html;
         cv.imshow(canvas, originalMat);
         return;
       }
@@ -337,12 +453,11 @@
       }
       html += '</div>';
 
-      html += '<p><strong>📝 手法説明：</strong></p>';
-      html += '<ol>';
-      html += '<li><strong>テンプレートマッチング：</strong> シフト文字（B,C,D,X,Y）の位置をOpenCV.jsで検出</li>';
-      html += '<li><strong>位置推定：</strong> Y座標からシフト日付帯を推定（±1日の許容範囲）</li>';
-      html += '<li><strong>OCR抽出（Tesseract.js）：</strong> 表全体から日本語テキストを認識し、数字を抽出</li>';
-      html += '</ol>';
+      if (debugLog) {
+        html += '<div class="info" style="margin-top: 1rem;"><strong>🐛 デバッグログ：</strong><br>';
+        html += '<pre style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;">' + debugLog + '</pre>';
+        html += '</div>';
+      }
 
       resultDiv.innerHTML = html;
 
@@ -427,11 +542,8 @@
 
     // テンプレート画像をプリロード
     window.addEventListener('load', () => {
-      const shiftChars = ['B', 'C', 'D', 'X', 'Y'];
-      shiftChars.forEach(char => {
-        const img = new Image();
-        img.src = `template/${char}_time.png`;
-      });
+      console.log('ページロード完了。テンプレート確認ボタンをクリックしてください。');
+      checkTemplateImages();
     });
   </script>
 </body>

@@ -1,0 +1,31 @@
+# 環境変数ファイル（APIキーなどの機密情報）
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# Node モジュール
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ビルド
+dist/
+build/
+
+# ローカルテスト
+*.local.js
+test-results/

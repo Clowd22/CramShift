@@ -1,0 +1,8 @@
+{
+  "name": "cramshift",
+  "version": "1.0.0",
+  "description": "明光義塾 シフト入力アプリケーション",
+  "keywords": ["shift", "calendar", "google-calendar"],
+  "author": "",
+  "license": "MIT"
+}

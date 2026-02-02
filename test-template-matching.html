@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CramShift - テンプレートマッチング版</title>
+  <style>
+    body {
+      font-family: "Noto Sans JP", sans-serif;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: auto;
+      background: #f7f9fc;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #007bff;
+      padding-bottom: 1rem;
+    }
+    .section {
+      margin: 2rem 0;
+      padding: 1rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+    .section h2 {
+      color: #0056b3;
+      margin-top: 0;
+    }
+    label {
+      display: block;
+      margin: 1rem 0 0.5rem;
+      font-weight: 600;
+    }
+    input[type="file"], input[type="range"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 1rem 0.5rem 1rem 0;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .result {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .shift-result {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .shift-item {
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .shift-item.shift-B { border-left: 4px solid #4CAF50; }
+    .shift-item.shift-C { border-left: 4px solid #2196F3; }
+    .shift-item.shift-D { border-left: 4px solid #FF9800; }
+    .shift-item.shift-X { border-left: 4px solid #9C27B0; }
+    .shift-item.shift-Y { border-left: 4px solid #F44336; }
+    
+    canvas {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      margin: 1rem 0;
+      border-radius: 8px;
+    }
+    .loading {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+    }
+    .error {
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      color: #c62828;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    .success {
+      background: #e8f5e9;
+      border: 1px solid #66bb6a;
+      color: #2e7d32;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    .info {
+      background: #e3f2fd;
+      border: 1px solid #64b5f6;
+      color: #1565c0;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 テンプレートマッチング版 - シフト表解析</h1>
+    
+    <div class="info">
+      <strong>📌 説明：</strong> このページはテンプレートマッチングを使ってシフト文字（B, C, D, X, Y）を検出し、その上にある数字から日付を抽出する実験的な方法です。
+    </div>
+
+    <div class="section">
+      <h2>📸 画像アップロード</h2>
+      <label for="uploadImage">シフト表の画像を選択：</label>
+      <input type="file" id="uploadImage" accept="image/*">
+      <button onclick="analyzeWithTemplateMatching()">テンプレートマッチングで解析</button>
+    </div>
+
+    <div class="section">
+      <h2>⚙️ 解析設定</h2>
+      <label>マッチング閾値（0-1）：</label>
+      <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.7">
+      <span id="thresholdValue">0.70</span>
+      
+      <label style="margin-top: 1rem;">最小マッチサイズ（ピクセル）：</label>
+      <input type="range" id="minSize" min="5" max="100" step="5" value="20">
+      <span id="minSizeValue">20</span>
+    </div>
+
+    <div class="section">
+      <h2>🎯 検出結果</h2>
+      <div id="result"></div>
+      <canvas id="canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- OpenCV.js を読み込み -->
+  <script async src="https://docs.opencv.org/4.5.2/opencv.js"></script>
+
+  <script>
+    // スライダーの値をリアルタイム表示
+    document.getElementById('threshold').addEventListener('input', (e) => {
+      document.getElementById('thresholdValue').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    document.getElementById('minSize').addEventListener('input', (e) => {
+      document.getElementById('minSizeValue').textContent = e.target.value;
+    });
+
+    /**
+     * テンプレートマッチング + OCRでシフト表を解析
+     */
+    async function analyzeWithTemplateMatching() {
+      const fileInput = document.getElementById('uploadImage');
+      const file = fileInput.files[0];
+      const resultDiv = document.getElementById('result');
+
+      if (!file) {
+        resultDiv.innerHTML = '<div class="error">❌ 画像ファイルを選択してください</div>';
+        return;
+      }
+
+      if (typeof cv === 'undefined') {
+        resultDiv.innerHTML = '<div class="error">❌ OpenCV.jsの読み込み中です。少々お待ちください...</div>';
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="loading">⏳ 解析中...</div>';
+
+      try {
+        // 1. 画像を読み込む
+        const img = await loadImage(file);
+        const src = cv.imread(img);
+        const canvas = document.getElementById('canvas');
+        
+        // 2. グレースケール変換
+        const gray = new cv.Mat();
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+        // 3. テンプレートマッチングでシフト文字を検出
+        const detectedShifts = await detectShiftsWithTemplate(gray);
+
+        // 4. 結果を表示
+        displayResults(detectedShifts, src, canvas);
+
+        // メモリ解放
+        src.delete();
+        gray.delete();
+
+      } catch (error) {
+        console.error('Error:', error);
+        resultDiv.innerHTML = `<div class="error">❌ エラー: ${error.message}</div>`;
+      }
+    }
+
+    /**
+     * 画像ファイルをImage要素に変換
+     */
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /**
+     * テンプレートを使ってシフト文字を検出
+     */
+    async function detectShiftsWithTemplate(grayImage) {
+      const shiftChars = ['B', 'C', 'D', 'X', 'Y'];
+      const detectedShifts = {};
+      const threshold = parseFloat(document.getElementById('threshold').value);
+
+      for (const shiftChar of shiftChars) {
+        try {
+          const templatePath = `template/${shiftChar}_time.png`;
+          const templateImg = await loadImage(templatePath);
+          const template = cv.imread(templateImg);
+          const templateGray = new cv.Mat();
+          cv.cvtColor(template, templateGray, cv.COLOR_RGBA2GRAY);
+
+          // マッチング実行
+          const result = new cv.Mat();
+          cv.matchTemplate(grayImage, templateGray, result, cv.TM_CCOEFF_NORMED);
+
+          // ピークを検出
+          const minVal = { value: 0 };
+          const maxVal = { value: 0 };
+          const minLoc = { x: 0, y: 0 };
+          const maxLoc = { x: 0, y: 0 };
+          
+          cv.minMaxLoc(result, minVal, maxVal, minLoc, maxLoc);
+
+          if (maxVal.value > threshold) {
+            detectedShifts[shiftChar] = {
+              score: maxVal.value,
+              x: maxLoc.x,
+              y: maxLoc.y,
+              confidence: Math.round(maxVal.value * 100)
+            };
+          }
+
+          // メモリ解放
+          template.delete();
+          templateGray.delete();
+          result.delete();
+
+        } catch (error) {
+          console.warn(`テンプレート ${shiftChar} 検出失敗:`, error);
+        }
+      }
+
+      return detectedShifts;
+    }
+
+    /**
+     * 検出結果を表示
+     */
+    function displayResults(detectedShifts, originalMat, canvas) {
+      const resultDiv = document.getElementById('result');
+      
+      if (Object.keys(detectedShifts).length === 0) {
+        resultDiv.innerHTML = '<div class="error">❌ シフト文字が検出されませんでした。閾値を下げてみてください。</div>';
+        cv.imshow(canvas, originalMat);
+        return;
+      }
+
+      let html = '<div class="success">✅ 検出されたシフト：</div>';
+      html += '<div class="shift-result">';
+
+      for (const [shiftChar, info] of Object.entries(detectedShifts)) {
+        html += `
+          <div class="shift-item shift-${shiftChar}">
+            <strong>${shiftChar}</strong><br>
+            <small>信頼度: ${info.confidence}%</small><br>
+            <small style="color: #666;">Y座標: ${info.y}px</small>
+          </div>
+        `;
+      }
+      html += '</div>';
+
+      html += '<p><strong>📝 注：</strong> 現在のバージョンはシフト文字の検出のみです。次のステップでは、検出した文字の上側にある数字を認識して日付を抽出します。</p>';
+
+      resultDiv.innerHTML = html;
+
+      // キャンバスに画像を表示
+      cv.imshow(canvas, originalMat);
+
+      // 検出点を描画
+      const displayImage = originalMat.clone();
+      for (const [shiftChar, info] of Object.entries(detectedShifts)) {
+        const color = new cv.Scalar(0, 255, 0, 255);
+        const radius = 10;
+        const thickness = 2;
+        const point = new cv.Point(info.x, info.y);
+        cv.circle(displayImage, point, radius, color, thickness);
+        cv.putText(displayImage, shiftChar, new cv.Point(info.x - 10, info.y - 20), 
+                   cv.FONT_HERSHEY_SIMPLEX, 1, color, 2);
+      }
+      cv.imshow(canvas, displayImage);
+      displayImage.delete();
+    }
+
+    // テンプレート画像をプリロード
+    window.addEventListener('load', () => {
+      const shiftChars = ['B', 'C', 'D', 'X', 'Y'];
+      shiftChars.forEach(char => {
+        const img = new Image();
+        img.src = `template/${char}_time.png`;
+      });
+    });
+  </script>
+</body>
+</html>

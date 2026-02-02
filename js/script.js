@@ -203,6 +203,12 @@ function generateCalendar() {
     const displayDate = `${date.getMonth() + 1}/${date.getDate()}（${getDayOfWeek(date)}）`;
     const div = document.createElement('div');
     div.className = 'day';
+    
+    // 日曜日（dayOfWeek = 0）の場合はsundayクラスを追加
+    if (date.getDay() === 0) {
+      div.classList.add('sunday');
+    }
+    
     div.innerHTML = `<strong>${displayDate}</strong>`;
     const shiftContainer = document.createElement('div');
     shiftContainer.className = 'shift-select';

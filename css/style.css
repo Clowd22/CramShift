@@ -2,85 +2,147 @@
 body {
   font-family: "Noto Sans JP", sans-serif;
   padding: 1rem;
-  max-width: 980px;
+  max-width: 1200px;
   margin: auto;
   background: #f7f9fc;
   color: #222;
 }
 
 h2 {
-text-align: center;
-margin-bottom: 1rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
 label {
-display: block;
-margin: 0.5rem 0 0.2rem;
+  display: block;
+  margin: 0.5rem 0 0.2rem;
+  font-weight: 600;
 }
 
 input[type="text"], select {
-width: 100%;
-padding: 0.5rem;
-border: 1px solid #ccc;
-border-radius: 8px;
-box-sizing: border-box;
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-size: 1rem;
 }
 
-/* カレンダー部分のレスポンシブグリッド設定 */
+input[type="text"]:focus, select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* ========================================
+   カレンダー部分 - レスポンシブグリッド
+   ======================================== */
+
 .calendar {
-display: grid;
-grid-template-columns: repeat(3, 1fr); /* デフォルトはスマホ向けで4列 */
-gap: 10px;
-margin-top: 1rem;
+  display: grid;
+  gap: 1px;
+  margin-top: 2rem;
+  background: #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* PC版：7列（日月火水木金土） */
+@media (min-width: 768px) {
+  .calendar {
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: auto;
+  }
+  
+  /* 日曜日の色付け（最初の列） */
+  .day:nth-child(7n+1) {
+    background: #f5f5f5;
+  }
+  
+  .day:nth-child(7n+1) strong {
+    color: #d32f2f;
+  }
+}
+
+/* スマホ版：3列 */
+@media (max-width: 767px) {
+  .calendar {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .day {
-border: 1px solid #ddd;
-padding: 0.5rem;
-border-radius: 10px;
-margin-bottom: 10px;
+  background: white;
+  padding: 1rem;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  transition: background-color 0.2s ease;
 }
 
 .day:hover {
-box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: #f9f9f9;
 }
 
 .day strong {
-display: block;
-font-size: 1.0rem;
-margin-bottom: 1.0rem;
-color: #007bff;
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 0.8rem;
+  color: #007bff;
+  font-weight: 700;
+}
+
+/* 日曜日のテキストを赤色 */
+.day.sunday strong {
+  color: #d32f2f;
+}
+
+/* 日曜日のセルを灰色 */
+.day.sunday {
+  background: #fafafa;
 }
 
 .shift-select {
-display: flex;
-flex-wrap: wrap;
-gap: 8px;
-margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  min-height: 0;
 }
 
 .shift-btn {
-display: flex;
-align-items: center;
-justify-content: center;
-padding: 8px 14px;
-border: 1px solid #ccc;
-border-radius: 12px;
-cursor: pointer;
-font-size: 1rem;
-user-select: none;
-background-color: #f2f2f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  user-select: none;
+  background-color: #fff;
+  color: #555;
+  transition: all 0.15s ease;
 }
 
+.shift-btn:hover {
+  border-color: #007bff;
+  background-color: #e3f2fd;
+}
 
 .shift-btn input {
-display: none;
+  display: none;
 }
 
 .shift-btn.active {
-background-color: #007bff;
-color: white;
-border-color: #007bff;
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
 }
 
 button {

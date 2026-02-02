@@ -155,6 +155,8 @@
 
   <!-- OpenCV.js を読み込み -->
   <script async src="https://docs.opencv.org/4.5.2/opencv.js"></script>
+  <!-- Tesseract.js for OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.4/dist/tesseract.min.js"></script>
 
   <script>
     // スライダーの値をリアルタイム表示
@@ -198,7 +200,13 @@
         // 3. テンプレートマッチングでシフト文字を検出
         const detectedShifts = await detectShiftsWithTemplate(gray);
 
-        // 4. 結果を表示
+        // 4. OCRで日付を抽出（オプション）
+        if (Object.keys(detectedShifts).length > 0) {
+          resultDiv.innerHTML = '<div class="loading">⏳ OCRで日付を抽出中...</div>';
+          await extractDatesWithOCR(file, detectedShifts, src);
+        }
+
+        // 5. 結果を表示
         displayResults(detectedShifts, src, canvas);
 
         // メモリ解放
@@ -284,6 +292,10 @@
     function displayResults(detectedShifts, originalMat, canvas) {
       const resultDiv = document.getElementById('result');
       
+      // OCR抽出データを分離
+      const ocrData = detectedShifts.ocrDates;
+      delete detectedShifts.ocrDates;
+
       if (Object.keys(detectedShifts).length === 0) {
         resultDiv.innerHTML = '<div class="error">❌ シフト文字が検出されませんでした。閾値を下げてみてください。</div>';
         cv.imshow(canvas, originalMat);
@@ -291,20 +303,46 @@
       }
 
       let html = '<div class="success">✅ 検出されたシフト：</div>';
+
+      // OCRで抽出された日付を表示
+      if (ocrData && ocrData.extractedDates.length > 0) {
+        html += `
+          <div class="info" style="margin-bottom: 1rem;">
+            <strong>📅 OCRで抽出された日付：</strong><br>
+            ${ocrData.extractedDates.join('日, ')}日
+          </div>
+        `;
+      }
+
       html += '<div class="shift-result">';
 
-      for (const [shiftChar, info] of Object.entries(detectedShifts)) {
+      // シフト文字を Y座標でソート（上から下へ）
+      const sortedShifts = Object.entries(detectedShifts)
+        .sort((a, b) => a[1].y - b[1].y);
+
+      for (const [shiftChar, info] of sortedShifts) {
+        // 上側にある領域から日付を推測
+        const dateHint = estimateDateFromPosition(info.y, originalMat.rows);
+        
         html += `
           <div class="shift-item shift-${shiftChar}">
             <strong>${shiftChar}</strong><br>
             <small>信頼度: ${info.confidence}%</small><br>
-            <small style="color: #666;">Y座標: ${info.y}px</small>
+            <small style="color: #666;">Y座標: ${info.y}px</small><br>
+            <small style="background: #fff3cd; padding: 0.25rem 0.5rem; border-radius: 4px;">
+              推定日付帯: ${dateHint}
+            </small>
           </div>
         `;
       }
       html += '</div>';
 
-      html += '<p><strong>📝 注：</strong> 現在のバージョンはシフト文字の検出のみです。次のステップでは、検出した文字の上側にある数字を認識して日付を抽出します。</p>';
+      html += '<p><strong>📝 手法説明：</strong></p>';
+      html += '<ol>';
+      html += '<li><strong>テンプレートマッチング：</strong> シフト文字（B,C,D,X,Y）の位置をOpenCV.jsで検出</li>';
+      html += '<li><strong>位置推定：</strong> Y座標からシフト日付帯を推定（±1日の許容範囲）</li>';
+      html += '<li><strong>OCR抽出（Tesseract.js）：</strong> 表全体から日本語テキストを認識し、数字を抽出</li>';
+      html += '</ol>';
 
       resultDiv.innerHTML = html;
 
@@ -324,6 +362,67 @@
       }
       cv.imshow(canvas, displayImage);
       displayImage.delete();
+    }
+
+    /**
+     * Y座標から推定される日付帯を計算
+     * シフト表では通常、日付が行に対応している
+     */
+    function estimateDateFromPosition(yPos, imageHeight) {
+      // シフト表の一般的な構造：
+      // - ヘッダー行（日付）：上部 0-80px 程度
+      // - 行の高さ：約 30-40px
+      
+      const headerHeight = 80;
+      const rowHeight = 35;
+      
+      if (yPos < headerHeight) {
+        return '日付行内';
+      }
+      
+      const rowNumber = Math.floor((yPos - headerHeight) / rowHeight);
+      const dayRange = Math.min(rowNumber + 1, 31);
+      
+      // 複数行分の日付をカバーする可能性がある
+      const startDay = Math.max(1, dayRange - 1);
+      const endDay = Math.min(31, dayRange + 1);
+      
+      if (startDay === endDay) {
+        return `${startDay}日付近`;
+      } else {
+        return `${startDay}-${endDay}日付近`;
+      }
+    }
+
+    /**
+     * OCRを使用した日付抽出
+     */
+    async function extractDatesWithOCR(fileData, detectedShifts, imageMat) {
+      try {
+        // Tesseract.jsで全文OCR
+        const { data: { text } } = await Tesseract.recognize(
+          fileData,
+          'jpn',  // 日本語
+          { logger: (m) => console.log('OCR進捗:', m) }
+        );
+
+        // 抽出されたテキストから数字（日付）を抽出
+        const dates = text.match(/\d{1,2}/g) || [];
+        const uniqueDates = [...new Set(dates.map(d => parseInt(d)).filter(d => d >= 1 && d <= 31))];
+        uniqueDates.sort((a, b) => a - b);
+
+        // detectedShiftsに日付情報を追加
+        if (uniqueDates.length > 0) {
+          detectedShifts.ocrDates = {
+            extractedDates: uniqueDates,
+            rawText: text.substring(0, 500)  // デバッグ用に先頭500字
+          };
+        }
+
+      } catch (error) {
+        console.warn('OCR処理エラー:', error);
+        // OCRエラーは非致命的なので続行
+      }
     }
 
     // テンプレート画像をプリロード

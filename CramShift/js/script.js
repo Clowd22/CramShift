@@ -28,8 +28,8 @@ let pendingAnalysisResult = null;
 // Gemini API 設定（Google Apps Script経由でAPIキーを安全に管理）
 // APIキーはGASのスクリプトプロパティで管理されているため、クライアント側には露出しません
 const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwHM9XoghZjKHjBlmt_vwEE6IKgJRRXLn8JEdK_l9NmkOv-g9QH5evw7zp0DX_Q6oo8/exec';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models';
-const GEMINI_API_MODEL = 'gemini-1.5-flash-001';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_API_MODEL = 'gemini-2.5-flash';
 
 // デバッグ用:コンソールに設定を出力
 console.log('🔧 Gemini API Configuration loaded:');

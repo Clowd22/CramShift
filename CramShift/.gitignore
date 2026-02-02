@@ -3,6 +3,10 @@
 .env.local
 .env.*.local
 
+# APIキーを含む可能性のあるセットアップファイル
+GEMINI_API_SETUP.md
+VERCEL_SETUP.md
+
 # Vercel
 .vercel
 

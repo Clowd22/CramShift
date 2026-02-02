@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini API モデル一覧取得</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .model { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+    .model-name { font-weight: bold; color: #0066cc; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Gemini API 利用可能モデル一覧</h1>
+  <button onclick="listModels()">モデル一覧を取得</button>
+  <div id="result"></div>
+
+  <script>
+    const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwHM9XoghZjKHjBlmt_vwEE6IKgJRRXLn8JEdK_l9NmkOv-g9QH5evw7zp0DX_Q6oo8/exec';
+
+    async function listModels() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<p>⏳ モデル一覧を取得中...</p>';
+
+      try {
+        // 1) GASからAPIキーを取得
+        const gasResponse = await fetch(GAS_ENDPOINT);
+        const gasData = await gasResponse.json();
+        const { apiKey } = gasData;
+
+        if (!apiKey) {
+          throw new Error('APIキーが取得できませんでした');
+        }
+
+        console.log('✅ APIキーを取得しました');
+
+        // 2) v1beta のモデル一覧を取得
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const response = await fetch(listUrl);
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`APIエラー: ${response.status} - ${errorData}`);
+        }
+
+        const data = await response.json();
+        console.log('API Response:', data);
+
+        // 3) generateContentをサポートするモデルをフィルタリング
+        const models = data.models || [];
+        const generateContentModels = models.filter(model => 
+          model.supportedGenerationMethods && 
+          model.supportedGenerationMethods.includes('generateContent')
+        );
+
+        // 4) 結果を表示
+        let html = `<h2>✅ 取得成功！ (合計: ${models.length}個)</h2>`;
+        html += `<h3>📝 generateContent対応モデル (${generateContentModels.length}個):</h3>`;
+
+        if (generateContentModels.length === 0) {
+          html += '<p>generateContentをサポートするモデルが見つかりませんでした。</p>';
+        } else {
+          generateContentModels.forEach(model => {
+            const modelName = model.name.replace('models/', '');
+            const displayName = model.displayName || modelName;
+            const description = model.description || '説明なし';
+            const supportedMethods = model.supportedGenerationMethods.join(', ');
+
+            html += `
+              <div class="model">
+                <div class="model-name">${modelName}</div>
+                <div><strong>表示名:</strong> ${displayName}</div>
+                <div><strong>説明:</strong> ${description}</div>
+                <div><strong>サポート:</strong> ${supportedMethods}</div>
+              </div>
+            `;
+          });
+        }
+
+        // 全モデルの詳細をコンソールに出力
+        html += '<h3>📋 全モデル詳細（コンソールも確認してください）</h3>';
+        html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+
+        resultDiv.innerHTML = html;
+
+      } catch (error) {
+        console.error('Error:', error);
+        resultDiv.innerHTML = `<p style="color: red;">❌ エラー: ${error.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>

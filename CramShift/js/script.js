@@ -105,6 +105,44 @@ function addCalendarEvent(title, startDateTime, endDateTime) {
     });
 }
 
+/**
+ * 非同期版: Google Calendar API でイベントを作成（Rate Limit制御用）
+ */
+function addCalendarEventAsync(title, startDateTime, endDateTime) {
+  return new Promise((resolve, reject) => {
+    const eventBody = {
+      summary: title,
+      start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
+      end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
+    };
+    
+    console.log(`    📡 API送信: ${startDateTime} → ${endDateTime}`);
+    
+    fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(eventBody)
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log(`      ✅ 成功: ${data.id || 'Unknown'}`);
+        resolve(data);
+      })
+      .catch(error => {
+        console.error(`      ❌ 失敗: ${error.message}`);
+        reject(error);
+      });
+  });
+}
+
 
 // ─────────────────────────────────────────────────────────────
 // 4. シフト登録処理（submitData）
@@ -182,28 +220,41 @@ function submitData() {
   console.log(`📊 登録対象日数: ${entries.length}日`);
   console.log('データ詳細:', JSON.stringify(entries, null, 2));
 
-  // ③ カレンダーにイベントを順番に登録
+  // ③ カレンダーにイベントを順番に登録（遅延制御で Rate Limit を回避）
   console.log('\n📤 Google Calendar APIへの送信開始：');
-  let eventCount = 0;
+  console.log('⚠️ Rate Limitを回避するため、100ms間隔でAPIコールを送信します');
   
-  entries.forEach(entry => {
-    entry.shifts.forEach(shift => {
-      const shiftInfo = SHIFT_TIMES[shift];
-      if (!shiftInfo) {
-        console.warn(`⚠️ シフト情報が見つかりません: ${shift}`);
-        return;
+  let eventCount = 0;
+  let failureCount = 0;
+  
+  // 非同期処理で順序を制御
+  (async () => {
+    for (const entry of entries) {
+      for (const shift of entry.shifts) {
+        const shiftInfo = SHIFT_TIMES[shift];
+        if (!shiftInfo) {
+          console.warn(`⚠️ シフト情報が見つかりません: ${shift}`);
+          failureCount++;
+          continue;
+        }
+
+        const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
+        const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
+        
+        console.log(`  [${eventCount + 1}] ${entry.date} ${shift} (${shiftInfo.start}～${shiftInfo.end})`);
+        await addCalendarEventAsync(title, startDateTime, endDateTime);
+        eventCount++;
+        
+        // Rate Limitを回避するため100ms遅延
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
-
-      const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
-      const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
-      
-      console.log(`  [${eventCount + 1}] ${entry.date} ${shift} (${shiftInfo.start}～${shiftInfo.end})`);
-      addCalendarEvent(title, startDateTime, endDateTime);
-      eventCount++;
-    });
-  });
-
-  console.log(`\n📨 送信合計: ${eventCount}件のイベント`);
+    }
+    
+    console.log(`\n✅ 送信完了: ${eventCount}件のイベント`);
+    if (failureCount > 0) {
+      console.warn(`⚠️ スキップされた不正なシフト: ${failureCount}件`);
+    }
+  })();
 
   // ④ 登録後、UIを戻す
   setTimeout(() => {
@@ -552,9 +603,53 @@ async function analyzeImage() {
     const analysisResult = JSON.parse(jsonStr);
     console.log('Parsed Result:', analysisResult);
 
+    // 🔍 **厳密なバリデーション**：不正なデータをフィルタリング
+    console.log('\n🔍 バリデーション開始：');
+    const validatedResult = [];
+    let validCount = 0;
+    let invalidCount = 0;
+
+    analysisResult.forEach((item, idx) => {
+      // チェック1: dayが数値か確認
+      if (!Number.isInteger(item.day) || item.day < 1 || item.day > 31) {
+        console.warn(`  [${idx}] ❌ 無効な日付: day=${item.day}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック2: shiftsが配列か確認
+      if (!Array.isArray(item.shifts)) {
+        console.warn(`  [${idx}] ❌ 無効なシフト形式: shifts=${item.shifts}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック3: shiftsが空配列でないか確認
+      if (item.shifts.length === 0) {
+        console.warn(`  [${idx}] ⚠️ シフトが空: day=${item.day}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック4: 全要素が文字列か確認
+      const allStrings = item.shifts.every(s => typeof s === 'string');
+      if (!allStrings) {
+        console.warn(`  [${idx}] ❌ シフトに非文字列を含む: day=${item.day}, shifts=${JSON.stringify(item.shifts)}`);
+        invalidCount++;
+        return;
+      }
+
+      // バリデーション成功
+      validatedResult.push(item);
+      console.log(`  [${idx}] ✅ OK: day=${item.day}, shifts=[${item.shifts.join(',')}]`);
+      validCount++;
+    });
+
+    console.log(`\n📊 バリデーション結果: 有効 ${validCount}件 / 無効 ${invalidCount}件`);
+
     // 4) 結果を確認パネルに表示（ユーザー確認後に反映）
-    pendingAnalysisResult = analysisResult;
-    renderAnalysisReview(analysisResult);
+    pendingAnalysisResult = validatedResult;
+    renderAnalysisReview(validatedResult);
 
     alert('自動入力候補を表示しました。内容を確認して反映してください。');
   } catch (error) {

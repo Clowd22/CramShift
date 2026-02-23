@@ -127,17 +127,29 @@ function submitData() {
     date.setDate(date.getDate() + 1);
   }
 
-  // ③ カレンダーにイベントを順番に登録
-  entries.forEach(entry => {
-    entry.shifts.forEach(shift => {
-      const shiftInfo = SHIFT_TIMES[shift];
-      if (!shiftInfo) return;
+  // ③ カレンダーにイベントを順番に登録（非同期処理で順序を制御）
+  const allEntries = [...entries];
+  let eventCount = 0;
+  
+  (async () => {
+    for (const entry of allEntries) {
+      for (const shift of entry.shifts) {
+        const shiftInfo = SHIFT_TIMES[shift];
+        if (!shiftInfo) return;
 
-      const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
-      const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
-      addCalendarEvent(title, startDateTime, endDateTime);
-    });
-  });
+        // ⭐ **重要:** API送信前に遅延を入れる（Rate Limitを確実に回避）
+        if (eventCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
+        const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
+        addCalendarEvent(title, startDateTime, endDateTime);
+        eventCount++;
+      }
+    }
+    console.log(`✅ イベント送信完了: ${eventCount}件`);
+  })();
 
   // ④ 登録後、UIを戻す
   setTimeout(() => {

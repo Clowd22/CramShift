@@ -241,12 +241,14 @@ function submitData() {
         const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
         const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
         
+        // ⭐ **重要:** API送信前に遅延を入れる（Rate Limitを確実に回避）
+        if (eventCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
         console.log(`  [${eventCount + 1}] ${entry.date} ${shift} (${shiftInfo.start}～${shiftInfo.end})`);
         await addCalendarEventAsync(title, startDateTime, endDateTime);
         eventCount++;
-        
-        // Rate Limitを回避するため100ms遅延
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     

@@ -29,7 +29,7 @@ let pendingAnalysisResult = null;
 // APIキーはGASのスクリプトプロパティで管理されているため、クライアント側には露出しません
 const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwHM9XoghZjKHjBlmt_vwEE6IKgJRRXLn8JEdK_l9NmkOv-g9QH5evw7zp0DX_Q6oo8/exec';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_API_MODEL = 'gemini-2.5-flash';
+const GEMINI_API_MODEL = 'gemini-2.5-pro';
 
 // デバッグ用:コンソールに設定を出力
 console.log('🔧 Gemini API Configuration loaded:');
@@ -75,32 +75,99 @@ function onShiftSubmitButtonClick() {
 // 3. Google Calendar API でイベントを作成する関数
 // ─────────────────────────────────────────────────────────────
 function addCalendarEvent(title, startDateTime, endDateTime) {
+  const eventBody = {
+    summary: title,
+    start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
+    end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
+  };
+  
+  console.log(`  📡 API送信: ${title} | ${startDateTime} → ${endDateTime}`);
+  
   fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
+    body: JSON.stringify(eventBody)
+  })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log(`    ✅ イベント作成成功: ${data.id || 'Unknown'}`);
+    })
+    .catch(error => {
+      console.error(`    ❌ イベント作成失敗: ${error.message}`);
+    });
+}
+
+/**
+ * 非同期版: Google Calendar API でイベントを作成（Rate Limit制御用）
+ */
+function addCalendarEventAsync(title, startDateTime, endDateTime) {
+  return new Promise((resolve, reject) => {
+    const eventBody = {
       summary: title,
       start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
       end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
+    };
+    
+    console.log(`    📡 API送信: ${startDateTime} → ${endDateTime}`);
+    
+    fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(eventBody)
     })
-  })
-    .then(response => response.json())
-    .then(data => {
-      console.log("Event created:", data);
-    })
-    .catch(error => {
-      console.error("Error creating event:", error);
-    });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log(`      ✅ 成功: ${data.id || 'Unknown'}`);
+        resolve(data);
+      })
+      .catch(error => {
+        console.error(`      ❌ 失敗: ${error.message}`);
+        reject(error);
+      });
+  });
 }
 
 
 // ─────────────────────────────────────────────────────────────
 // 4. シフト登録処理（submitData）
 // ─────────────────────────────────────────────────────────────
+/**
+ * 🔍 データ欠損デバッグガイド：
+ * 
+ * ブラウザコンソール（F12キー）を開いて、以下の流れを確認してください：
+ * 
+ * 1. チェックボックスの状態を確認
+ *    → 「✅ 合計チェック数」を確認（正しい数が出ているか）
+ *    → 「チェックボックス走査開始」のログを確認（各日付のシフトが正しく見えているか）
+ * 
+ * 2. 登録されるべきデータを確認
+ *    → 「📊 登録対象日数」と「データ詳細」を確認
+ *    → ここで欠けているデータはないか確認
+ * 
+ * 3. Google Calendar APIへの実際の送信を確認
+ *    → 「📤 Google Calendar APIへの送信開始」以下で
+ *    → 各イベントが実際に送信されているか確認
+ *    → 「✅ イベント作成成功」が出ているか「❌ イベント作成失敗」がないか確認
+ */
 function submitData() {
+  console.log('======== submitData開始 ========');
+  
   // ① ボタン・処理中メッセージを切り替え
   const submitBtn = document.getElementById('submitBtn');
   const loadingDiv = document.getElementById('loading');
@@ -112,43 +179,83 @@ function submitData() {
   const title = document.getElementById('title').value || '明光義塾勤務';
   const selected = document.getElementById('monthSelector').value;
   const [year, month] = selected.split('-').map(Number);
+  
+  console.log(`📅 対象月: ${year}年${month}月`);
+  console.log(`📝 イベントタイトル: "${title}"`);
+  
   const entries = [];
   const date = new Date(year, month - 1, 1);
+  let totalCheckedCount = 0;
 
+  console.log('\n🔍 チェックボックス走査開始：');
+  
   while (date.getMonth() === month - 1) {
-    const dateStr = date.toISOString().split('T')[0];
-    const shifts = getAllShifts().filter(shift => {
-      const id = `${dateStr}-${shift}`;
-      return document.getElementById(id)?.checked;
+    const dateStr = date.toISOString().split('T')[0]; // UTC時刻で取得
+    
+    // 日本時刻に合わせた日付文字列を別途作成
+    const localDateStr = `${year}-${String(month).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    const allShifts = getAllShifts();
+    const checkedShifts = [];
+    
+    allShifts.forEach(shift => {
+      const id = `${localDateStr}-${shift}`;
+      const checkbox = document.getElementById(id);
+      
+      if (checkbox && checkbox.checked) {
+        checkedShifts.push(shift);
+        totalCheckedCount++;
+      }
     });
-    if (shifts.length > 0) {
-      entries.push({ date: dateStr, shifts });
+    
+    if (checkedShifts.length > 0) {
+      console.log(`  ${localDateStr}: [${checkedShifts.join(', ')}]`);
+      entries.push({ date: localDateStr, shifts: checkedShifts });
     }
+    
     date.setDate(date.getDate() + 1);
   }
 
-  // ③ カレンダーにイベントを順番に登録（非同期処理で順序を制御）
-  const allEntries = [...entries];
-  let eventCount = 0;
+  console.log(`\n✅ 合計チェック数: ${totalCheckedCount}件`);
+  console.log(`📊 登録対象日数: ${entries.length}日`);
+  console.log('データ詳細:', JSON.stringify(entries, null, 2));
+
+  // ③ カレンダーにイベントを順番に登録（遅延制御で Rate Limit を回避）
+  console.log('\n📤 Google Calendar APIへの送信開始：');
+  console.log('⚠️ Rate Limitを回避するため、100ms間隔でAPIコールを送信します');
   
+  let eventCount = 0;
+  let failureCount = 0;
+  
+  // 非同期処理で順序を制御
   (async () => {
-    for (const entry of allEntries) {
+    for (const entry of entries) {
       for (const shift of entry.shifts) {
         const shiftInfo = SHIFT_TIMES[shift];
-        if (!shiftInfo) return;
-
-        // ⭐ **重要:** API送信前に遅延を入れる（Rate Limitを確実に回避）
-        if (eventCount > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+        if (!shiftInfo) {
+          console.warn(`⚠️ シフト情報が見つかりません: ${shift}`);
+          failureCount++;
+          continue;
         }
 
         const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
         const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
-        addCalendarEvent(title, startDateTime, endDateTime);
+        
+        // ⭐ **重要:** API送信前に遅延を入れる（Rate Limitを確実に回避）
+        if (eventCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        console.log(`  [${eventCount + 1}] ${entry.date} ${shift} (${shiftInfo.start}～${shiftInfo.end})`);
+        await addCalendarEventAsync(title, startDateTime, endDateTime);
         eventCount++;
       }
     }
-    console.log(`✅ イベント送信完了: ${eventCount}件`);
+    
+    console.log(`\n✅ 送信完了: ${eventCount}件のイベント`);
+    if (failureCount > 0) {
+      console.warn(`⚠️ スキップされた不正なシフト: ${failureCount}件`);
+    }
   })();
 
   // ④ 登録後、UIを戻す
@@ -215,12 +322,6 @@ function generateCalendar() {
     const displayDate = `${date.getMonth() + 1}/${date.getDate()}（${getDayOfWeek(date)}）`;
     const div = document.createElement('div');
     div.className = 'day';
-    
-    // 日曜日（dayOfWeek = 0）の場合はsundayクラスを追加
-    if (date.getDay() === 0) {
-      div.classList.add('sunday');
-    }
-    
     div.innerHTML = `<strong>${displayDate}</strong>`;
     const shiftContainer = document.createElement('div');
     shiftContainer.className = 'shift-select';
@@ -357,27 +458,17 @@ function applyPendingAnalysis() {
 }
 
 /**
- * 確認パネルをリセット（登録内容を修正）
- * 解析結果をカレンダーに反映した上で、ユーザーに修正させる
+ * 確認パネルをリセット
  */
 function resetAnalysisReview() {
-  if (!pendingAnalysisResult) {
-    alert('反映できる結果がありません。先に画像から自動入力を実行してください。');
-    return;
-  }
-
-  // カレンダーに反映
-  applyAnalysisToCheckboxes(pendingAnalysisResult);
-  
-  // パネルを閉じる
-  const review = document.getElementById('analysisReview');
-  if (review) review.classList.add('hidden');
-  
-  // ユーザーにメッセージを表示
-  alert('自動入力結果をカレンダーに反映しました。必要に応じて修正してください。');
-  
-  // 結果をクリア
   pendingAnalysisResult = null;
+  const review = document.getElementById('analysisReview');
+  const summary = document.getElementById('analysisSummary');
+  const list = document.getElementById('analysisList');
+
+  if (summary) summary.textContent = '';
+  if (list) list.innerHTML = '';
+  if (review) review.classList.add('hidden');
 }
 
 /**
@@ -426,30 +517,30 @@ async function analyzeImage() {
         {
           parts: [
             {
-              text: `あなたはプロの画像認識AIです。この画像は学習塾のシフト表です。
-      カレンダーの各日付セルにある「アルファベット（A, B, C, D...）」を**一文字ずつ個別に**判定し、
-      **「青色の背景（確定シフト）」になっているものだけ**を抽出してください。
+              text: `あなたはカレンダー画像の視覚解析を行うAIです。
+      画像の各日付セルを確認し、以下の条件に合致する「シフト記号（アルファベット）」のみを抽出してください。
 
-      【絶対に守るべき抽出ルール】
-      1. **一文字単位で判定**:
-         - 同じ日付の中に「黄色のシフト（希望）」と「青色のシフト（確定）」が混在しています。
-         - **隣が黄色であっても、その文字が青色背景なら必ず抽出してください。**
-      
-      2. **具体例**:
-         - **18日や25日**を見てください。「B」と「D」は黄色ですが、真ん中の**「C」は青色**です。この「C」を見逃さず抽出してください。
-         - **24日**を見てください。「B」も青色です。B, C, Dすべて抽出してください。
+      【解析ルール】
+      1. **抽出対象（確定シフト）**:
+         - **「青色に塗りつぶされた四角い背景」** の中に描かれている **「白い文字」** だけを読み取ってください。
+         - アルファベット（A, B, C, D, X, Y, Z など）が対象です。
 
-      3. **除外対象**:
-         - 黄色の文字、黄色の背景、白い背景の文字はすべて無視してください。
+      2. **除外対象（無視するもの）**:
+         - **文字自体が黄色**のもの（背景が白、または透明）。これは「希望シフト」なので絶対に抽出しないでください。
+         - 背景が塗りつぶされていない文字。
+         - 日付の数字（1, 2, 3...）。
+
+      3. **判定の注意点**:
+         - 一つの日付セルの中に、「黄色の文字」と「青背景の白文字」が混在することがあります。その場合、**青背景のものだけ**を選り分けて抽出してください。
+         - **絶対に幻覚を見ないでください。** 画像に青い背景の文字が存在しない日付（例：空欄の日や、黄色文字しかない日）は、結果に含めないでください。
 
       【出力形式】
-      以下のJSONフォーマット（配列）**のみ**を出力してください。Markdown記法は不要です。
+      結果を以下のJSON形式（配列）**のみ**で出力してください。Markdown記法や説明文は一切不要です。
 
       [
-        {"day": 3, "shifts": ["B", "C", "D"]},
-        {"day": 18, "shifts": ["C"]},
-        {"day": 24, "shifts": ["B", "C", "D"]},
-        {"day": 25, "shifts": ["C"]}
+        {"day": 1, "shifts": ["C", "D"]},
+        {"day": 5, "shifts": ["A"]},
+        ...
       ]`
             },
             {
@@ -514,9 +605,53 @@ async function analyzeImage() {
     const analysisResult = JSON.parse(jsonStr);
     console.log('Parsed Result:', analysisResult);
 
+    // 🔍 **厳密なバリデーション**：不正なデータをフィルタリング
+    console.log('\n🔍 バリデーション開始：');
+    const validatedResult = [];
+    let validCount = 0;
+    let invalidCount = 0;
+
+    analysisResult.forEach((item, idx) => {
+      // チェック1: dayが数値か確認
+      if (!Number.isInteger(item.day) || item.day < 1 || item.day > 31) {
+        console.warn(`  [${idx}] ❌ 無効な日付: day=${item.day}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック2: shiftsが配列か確認
+      if (!Array.isArray(item.shifts)) {
+        console.warn(`  [${idx}] ❌ 無効なシフト形式: shifts=${item.shifts}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック3: shiftsが空配列でないか確認
+      if (item.shifts.length === 0) {
+        console.warn(`  [${idx}] ⚠️ シフトが空: day=${item.day}`);
+        invalidCount++;
+        return;
+      }
+
+      // チェック4: 全要素が文字列か確認
+      const allStrings = item.shifts.every(s => typeof s === 'string');
+      if (!allStrings) {
+        console.warn(`  [${idx}] ❌ シフトに非文字列を含む: day=${item.day}, shifts=${JSON.stringify(item.shifts)}`);
+        invalidCount++;
+        return;
+      }
+
+      // バリデーション成功
+      validatedResult.push(item);
+      console.log(`  [${idx}] ✅ OK: day=${item.day}, shifts=[${item.shifts.join(',')}]`);
+      validCount++;
+    });
+
+    console.log(`\n📊 バリデーション結果: 有効 ${validCount}件 / 無効 ${invalidCount}件`);
+
     // 4) 結果を確認パネルに表示（ユーザー確認後に反映）
-    pendingAnalysisResult = analysisResult;
-    renderAnalysisReview(analysisResult);
+    pendingAnalysisResult = validatedResult;
+    renderAnalysisReview(validatedResult);
 
     alert('自動入力候補を表示しました。内容を確認して反映してください。');
   } catch (error) {

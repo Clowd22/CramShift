@@ -75,24 +75,33 @@ function onShiftSubmitButtonClick() {
 // 3. Google Calendar API でイベントを作成する関数
 // ─────────────────────────────────────────────────────────────
 function addCalendarEvent(title, startDateTime, endDateTime) {
+  const eventBody = {
+    summary: title,
+    start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
+    end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
+  };
+  
+  console.log(`  📡 API送信: ${title} | ${startDateTime} → ${endDateTime}`);
+  
   fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      summary: title,
-      start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
-      end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" }
-    })
+    body: JSON.stringify(eventBody)
   })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
-      console.log("Event created:", data);
+      console.log(`    ✅ イベント作成成功: ${data.id || 'Unknown'}`);
     })
     .catch(error => {
-      console.error("Error creating event:", error);
+      console.error(`    ❌ イベント作成失敗: ${error.message}`);
     });
 }
 
@@ -100,7 +109,27 @@ function addCalendarEvent(title, startDateTime, endDateTime) {
 // ─────────────────────────────────────────────────────────────
 // 4. シフト登録処理（submitData）
 // ─────────────────────────────────────────────────────────────
+/**
+ * 🔍 データ欠損デバッグガイド：
+ * 
+ * ブラウザコンソール（F12キー）を開いて、以下の流れを確認してください：
+ * 
+ * 1. チェックボックスの状態を確認
+ *    → 「✅ 合計チェック数」を確認（正しい数が出ているか）
+ *    → 「チェックボックス走査開始」のログを確認（各日付のシフトが正しく見えているか）
+ * 
+ * 2. 登録されるべきデータを確認
+ *    → 「📊 登録対象日数」と「データ詳細」を確認
+ *    → ここで欠けているデータはないか確認
+ * 
+ * 3. Google Calendar APIへの実際の送信を確認
+ *    → 「📤 Google Calendar APIへの送信開始」以下で
+ *    → 各イベントが実際に送信されているか確認
+ *    → 「✅ イベント作成成功」が出ているか「❌ イベント作成失敗」がないか確認
+ */
 function submitData() {
+  console.log('======== submitData開始 ========');
+  
   // ① ボタン・処理中メッセージを切り替え
   const submitBtn = document.getElementById('submitBtn');
   const loadingDiv = document.getElementById('loading');
@@ -112,32 +141,69 @@ function submitData() {
   const title = document.getElementById('title').value || '明光義塾勤務';
   const selected = document.getElementById('monthSelector').value;
   const [year, month] = selected.split('-').map(Number);
+  
+  console.log(`📅 対象月: ${year}年${month}月`);
+  console.log(`📝 イベントタイトル: "${title}"`);
+  
   const entries = [];
   const date = new Date(year, month - 1, 1);
+  let totalCheckedCount = 0;
 
+  console.log('\n🔍 チェックボックス走査開始：');
+  
   while (date.getMonth() === month - 1) {
-    const dateStr = date.toISOString().split('T')[0];
-    const shifts = getAllShifts().filter(shift => {
-      const id = `${dateStr}-${shift}`;
-      return document.getElementById(id)?.checked;
+    const dateStr = date.toISOString().split('T')[0]; // UTC時刻で取得
+    
+    // 日本時刻に合わせた日付文字列を別途作成
+    const localDateStr = `${year}-${String(month).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    const allShifts = getAllShifts();
+    const checkedShifts = [];
+    
+    allShifts.forEach(shift => {
+      const id = `${localDateStr}-${shift}`;
+      const checkbox = document.getElementById(id);
+      
+      if (checkbox && checkbox.checked) {
+        checkedShifts.push(shift);
+        totalCheckedCount++;
+      }
     });
-    if (shifts.length > 0) {
-      entries.push({ date: dateStr, shifts });
+    
+    if (checkedShifts.length > 0) {
+      console.log(`  ${localDateStr}: [${checkedShifts.join(', ')}]`);
+      entries.push({ date: localDateStr, shifts: checkedShifts });
     }
+    
     date.setDate(date.getDate() + 1);
   }
 
+  console.log(`\n✅ 合計チェック数: ${totalCheckedCount}件`);
+  console.log(`📊 登録対象日数: ${entries.length}日`);
+  console.log('データ詳細:', JSON.stringify(entries, null, 2));
+
   // ③ カレンダーにイベントを順番に登録
+  console.log('\n📤 Google Calendar APIへの送信開始：');
+  let eventCount = 0;
+  
   entries.forEach(entry => {
     entry.shifts.forEach(shift => {
       const shiftInfo = SHIFT_TIMES[shift];
-      if (!shiftInfo) return;
+      if (!shiftInfo) {
+        console.warn(`⚠️ シフト情報が見つかりません: ${shift}`);
+        return;
+      }
 
       const startDateTime = `${entry.date}T${shiftInfo.start}:00+09:00`;
       const endDateTime = `${entry.date}T${shiftInfo.end}:00+09:00`;
+      
+      console.log(`  [${eventCount + 1}] ${entry.date} ${shift} (${shiftInfo.start}～${shiftInfo.end})`);
       addCalendarEvent(title, startDateTime, endDateTime);
+      eventCount++;
     });
   });
+
+  console.log(`\n📨 送信合計: ${eventCount}件のイベント`);
 
   // ④ 登録後、UIを戻す
   setTimeout(() => {
@@ -398,35 +464,29 @@ async function analyzeImage() {
         {
           parts: [
             {
-              text: `あなたは画像認識AIです。学習塾のシフト表画像を解析してください。
-      カレンダーの各日付セルにあるアルファベット（A, B, C, D...）を読み取り、以下の【厳格な色判定ルール】に基づいて抽出してください。
+              text: `あなたはカレンダー画像の視覚解析を行うAIです。
+      画像の各日付セルを確認し、以下の条件に合致する「シフト記号（アルファベット）」のみを抽出してください。
 
-      【最重要：色による判定ルール】
-      このシフト表には2種類の文字が存在します。
-      1. **抽出する文字**：
-         - **「青色の背景」** に乗っている **「白い文字」**
-         - (White text on Blue background)
-      
-      2. **捨てる文字（無視）**：
-         - **「黄色の文字」**（背景が白、または透明）
-         - (Yellow text on White background)
+      【解析ルール】
+      1. **抽出対象（確定シフト）**:
+         - **「青色に塗りつぶされた四角い背景」** の中に描かれている **「白い文字」** だけを読み取ってください。
+         - アルファベット（A, B, C, D, X, Y, Z など）が対象です。
 
-      【タスク】
-      各日付のアルファベットを一文字ずつ見て、「文字が白色か？黄色か？」を判定してください。
-      - **文字が白い場合** → **「確定シフト」として抽出リストに加える**
-      - **文字が黄色い場合** → **「希望シフト」なので無視する（絶対にリストに入れない）**
+      2. **除外対象（無視するもの）**:
+         - **文字自体が黄色**のもの（背景が白、または透明）。これは「希望シフト」なので絶対に抽出しないでください。
+         - 背景が塗りつぶされていない文字。
+         - 日付の数字（1, 2, 3...）。
 
-      ※注意：
-      - 同じ日付の中に「白い文字（確定）」と「黄色い文字（希望）」が隣り合っている日が多数あります（例：6日、17日など）。
-      - 必ず**「白い文字」だけ**を選り分けてください。「黄色い文字」が隣にあっても、それは無視してください。
-      - 画像に存在しない日付（空欄や、黄色文字しかない日）は出力しないでください。
+      3. **判定の注意点**:
+         - 一つの日付セルの中に、「黄色の文字」と「青背景の白文字」が混在することがあります。その場合、**青背景のものだけ**を選り分けて抽出してください。
+         - **絶対に幻覚を見ないでください。** 画像に青い背景の文字が存在しない日付（例：空欄の日や、黄色文字しかない日）は、結果に含めないでください。
 
       【出力形式】
-      以下のJSON形式（配列）のみを出力してください。
+      結果を以下のJSON形式（配列）**のみ**で出力してください。Markdown記法や説明文は一切不要です。
 
       [
-        {"day": 2, "shifts": ["C"]},
-        {"day": 6, "shifts": ["C"]},
+        {"day": 1, "shifts": ["C", "D"]},
+        {"day": 5, "shifts": ["A"]},
         ...
       ]`
             },
